@@ -14,6 +14,7 @@
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -26,7 +27,6 @@
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -132,7 +132,7 @@
       <HintPath>..\..\input\library\dll\x64\Seer.SDK.NotificationMonitors.dll</HintPath>
     </Reference>
     <Reference Include="socket.framework">
-      <HintPath>..\..\..\..\temp\socket.framework-master\socket.framework\bin\Debug\socket.framework.dll</HintPath>
+      <HintPath>..\..\..\socket.framework-master\socket.framework\bin\Debug\socket.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -150,6 +150,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AVMSCom.cs" />
     <Compile Include="Base\ServiceConfig.cs" />
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
@@ -160,6 +161,7 @@
     <Compile Include="Jobs\Job2\Job.cs" />
     <Compile Include="Jobs\Peake_Access\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access.cs" />
+    <Compile Include="Jobs\Peake_Access\Peake_Access_xmlConfig.cs" />
     <Compile Include="Jobs\SocketServer\Config.cs" />
     <Compile Include="Jobs\SocketServer\SocketServer.cs" />
     <Compile Include="ProjectInstaller.cs">

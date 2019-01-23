@@ -1,0 +1,309 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <ProjectType>Local</ProjectType>
+    <ProjectGuid>{656C6808-9761-4ED2-91DF-7E1CF91B1775}</ProjectGuid>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ApplicationIcon>App.ico</ApplicationIcon>
+    <AssemblyKeyContainerName>
+    </AssemblyKeyContainerName>
+    <AssemblyName>TransactionServerModules</AssemblyName>
+    <AssemblyOriginatorKeyFile>
+    </AssemblyOriginatorKeyFile>
+    <DefaultClientScript>JScript</DefaultClientScript>
+    <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
+    <DefaultTargetSchema>IE50</DefaultTargetSchema>
+    <DelaySign>false</DelaySign>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>TransactionServerModules</RootNamespace>
+    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+    <StartupObject>
+    </StartupObject>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>$(ProjectDir)..\..\output\bin\$(Configuration)\</OutputPath>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <BaseAddress>285212672</BaseAddress>
+    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
+    <ConfigurationOverrideFile>
+    </ConfigurationOverrideFile>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DocumentationFile>
+    </DocumentationFile>
+    <DebugSymbols>true</DebugSymbols>
+    <FileAlignment>4096</FileAlignment>
+    <NoStdLib>false</NoStdLib>
+    <NoWarn>1607</NoWarn>
+    <Optimize>false</Optimize>
+    <RegisterForComInterop>false</RegisterForComInterop>
+    <RemoveIntegerChecks>false</RemoveIntegerChecks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>4</WarningLevel>
+    <DebugType>full</DebugType>
+    <ErrorReport>prompt</ErrorReport>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>$(ProjectDir)..\..\output\bin\$(Configuration)\</OutputPath>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <BaseAddress>285212672</BaseAddress>
+    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
+    <ConfigurationOverrideFile>
+    </ConfigurationOverrideFile>
+    <DefineConstants>TRACE</DefineConstants>
+    <DocumentationFile>
+    </DocumentationFile>
+    <DebugSymbols>false</DebugSymbols>
+    <FileAlignment>4096</FileAlignment>
+    <NoStdLib>false</NoStdLib>
+    <NoWarn>1607</NoWarn>
+    <Optimize>true</Optimize>
+    <RegisterForComInterop>false</RegisterForComInterop>
+    <RemoveIntegerChecks>false</RemoveIntegerChecks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>4</WarningLevel>
+    <DebugType>none</DebugType>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>x86</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BaseIDL">
+      <HintPath>..\..\input\library\dll\x64\BaseIDL.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="Common">
+      <HintPath>..\..\input\library\dll\x64\Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Database, Version=7.0.0.0, Culture=neutral, PublicKeyToken=6c293b97cf6869d0, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Database.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v14.1, Version=14.1.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\DevExpress.Utils.v14.1.dll</HintPath>
+    </Reference>
+    <Reference Include="DeviceModel.Security">
+      <HintPath>..\..\input\library\dll\x64\DeviceModel.Security.dll</HintPath>
+    </Reference>
+    <Reference Include="DirectShowLib">
+      <HintPath>..\..\input\library\dll\x64\DirectShowLib.dll</HintPath>
+    </Reference>
+    <Reference Include="Farm.Security">
+      <HintPath>..\..\input\library\dll\x64\Farm.Security.dll</HintPath>
+    </Reference>
+    <Reference Include="Internationalization, Version=7.0.0.0, Culture=neutral, PublicKeyToken=6c293b97cf6869d0, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Internationalization.dll</HintPath>
+    </Reference>
+    <Reference Include="LibCurlNet, Version=1.3.0.0, Culture=neutral">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\LibCurlNet.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer, Version=7.0.0.0, Culture=neutral, PublicKeyToken=3e621d68966df9d6, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.Api">
+      <HintPath>..\..\input\library\dll\x64\Seer.Api.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.BaseLibCS, Version=7.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.BaseLibCS.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.Common">
+      <HintPath>..\..\input\library\dll\x64\Seer.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.Connectivity, Version=6.5.2.27539, Culture=neutral, PublicKeyToken=3e621d68966df9d6, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.Connectivity.dll</HintPath>
+    </Reference>
+    <Reference Include="AxInterop.VideoRecvCtrlLib">
+      <Name>AxInterop.VideoRecvCtrlLib</Name>
+      <HintPath>..\..\input\library\dll\x64\AxInterop.VideoRecvCtrlLib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Client.Management, Version=6.8.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Client.Management.dll</HintPath>
+    </Reference>
+    <Reference Include="Configuration, Version=6.5.3.28802, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Configuration.dll</HintPath>
+    </Reference>
+    <Reference Include="DeviceModel, Version=6.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\DeviceModel.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="DeviceModel.Dio, Version=6.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\DeviceModel.Dio.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib, Version=0.85.5.452, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="SecurityLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\SecurityLib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Seer.Database, Version=7.0.0.0, Culture=neutral, PublicKeyToken=3e621d68966df9d6, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.Database.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.Farm, Version=7.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.Farm.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.SDK.Core, Version=1.0.0.1, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.SDK.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Seer.SDK.NotificationMonitors, Version=1.0.0.1, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\input\library\dll\x64\Seer.SDK.NotificationMonitors.dll</HintPath>
+    </Reference>
+    <Reference Include="System">
+      <Name>System</Name>
+    </Reference>
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Configuration.Install" />
+    <Reference Include="System.Data">
+      <Name>System.Data</Name>
+    </Reference>
+    <Reference Include="System.Drawing">
+      <Name>System.Drawing</Name>
+    </Reference>
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.Windows.Forms">
+      <Name>System.Windows.Forms</Name>
+    </Reference>
+    <Reference Include="System.Xml">
+      <Name>System.XML</Name>
+    </Reference>
+    <Reference Include="VideoExport">
+      <HintPath>..\..\input\library\dll\x64\VideoExport.dll</HintPath>
+    </Reference>
+    <Reference Include="VideoExport.Exporters">
+      <HintPath>..\..\input\library\dll\x64\VideoExport.Exporters.dll</HintPath>
+    </Reference>
+    <Reference Include="VideoExport.NetSendHistExporters">
+      <HintPath>..\..\input\library\dll\x64\VideoExport.NetSendHistExporters.dll</HintPath>
+    </Reference>
+    <Reference Include="VideoExport.NetSendHistExporters.UI">
+      <HintPath>..\..\input\library\dll\x64\VideoExport.NetSendHistExporters.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="VideoExport.UI">
+      <HintPath>..\..\input\library\dll\x64\VideoExport.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="VideoRecvCtrlLib">
+      <HintPath>..\..\input\library\dll\x64\VideoRecvCtrlLib.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AVMSCom.cs" />
+    <Compile Include="AVMSDatabase.cs" />
+    <Compile Include="CgiFactory.cs" />
+    <Compile Include="Configuration\EventAction.cs" />
+    <Compile Include="Configuration\BodyElement.cs" />
+    <Compile Include="Configuration\Command.cs" />
+    <Compile Include="Configuration\Event.cs" />
+    <Compile Include="Configuration\EventCollection.cs" />
+    <Compile Include="Configuration\RulePolicy.cs" />
+    <Compile Include="EnumHelper.cs" />
+    <Compile Include="ServiceJob.cs" />
+    <Compile Include="SQLServerHelper.cs" />
+    <Content Include="App.ico" />
+    <None Include="app.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="..\..\solution\SharedAssemblyInfo.cs">
+      <Link>Properties\SharedAssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="EventMonitor.cs" />
+    <Compile Include="Form2.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form2.Designer.cs">
+      <DependentUpon>Form2.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Form1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormJpg.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormJpg.Designer.cs">
+      <DependentUpon>FormJpg.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="Form1.resx">
+      <DependentUpon>Form1.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormJpg.resx">
+      <SubType>Designer</SubType>
+      <DependentUpon>FormJpg.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.5.2">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.5.2 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+    <PostBuildEvent>xcopy "$(SolutionDir)..\input\library\dll\x64\*.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
+xcopy "$(ProjectDir)transaction.conf" "$(SolutionDir)..\output\bin\Debug\" /Y</PostBuildEvent>
+  </PropertyGroup>
+</Project>

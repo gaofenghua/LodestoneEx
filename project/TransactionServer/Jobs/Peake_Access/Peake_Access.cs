@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using TransactionServer.Base;
 using socket.framework.Client;
+using TC4I;
 
 namespace TransactionServer.Jobs.Peake_Access
 {
@@ -15,6 +16,7 @@ namespace TransactionServer.Jobs.Peake_Access
         private const string JOB_LOG_FILE = "TransactionServer_Peake_Access.log";
 
         private PA_Socket client;
+        public PA_xmlConfig config;
      
         protected override void Init()
         {
@@ -58,19 +60,59 @@ namespace TransactionServer.Jobs.Peake_Access
             Trace.WriteLine(log);
             PrintLog(log);
 
+            config = new PA_xmlConfig();
+            config.Load_Config();
+            if(config.status == false)
+            {
+                log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.",config.message);
+                Trace.WriteLine(log);
+                PrintLog(log);
+                return;
+            }
+
+            for (int i = 0; i < 5; i++)
+            {
+                if (Global.Avms.IsConnected == false)
+                {
+                    log = String.Format("AVMS server is not connected. Wait 3 seconds and will try again");
+                    System.Threading.Thread.Sleep(3000);
+                    Trace.WriteLine(log);
+                    PrintLog(log);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (Global.Avms.IsConnected == false)
+            {
+                log = String.Format("error: AVMS server is not connected. Exit Peake_Access process.");
+                Trace.WriteLine(log);
+                PrintLog(log);
+                return;
+            }
+          
+            log = String.Format("AVMS server connected. Straring Peake_Access process.");
+            Trace.WriteLine(log);
+            PrintLog(log);
+
+
+          
             int port = 5768;
             string ip = "192.168.77.101";
             int receiveBufferSize = 1024;
    
             client = new PA_Socket(receiveBufferSize,ip,port);
+            client.parent = this;
 
             byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
             byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
             byte[] Peak_Package_CMD_OpenDoor = { 0x7e, 0x20, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x37, 0x03 };
 
             client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
-            client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
-            client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
+            // client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
+            //client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
 
         }
 
@@ -88,6 +130,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
     class PA_Socket
     {
+        public Peake_Access parent;
         TcpPushClient client;
         public PA_Socket(int receiveBufferSize, string ip, int port)
         {
@@ -143,9 +186,9 @@ namespace TransactionServer.Jobs.Peake_Access
                             Peake_Access.PrintLog(log);
                             break;
                         case 0x1e: //刷卡/密码开门数据上传 （0x1E)
-                            log = String.Format("Peake_Access received package: 刷卡/密码开门数据上传 （0x1E)  [{0}]", BitConverter.ToString(obj, i, package_len));
-                            Trace.WriteLine(log);
-                            Peake_Access.PrintLog(log);
+                            //log = String.Format("Peake_Access received package: 刷卡/密码开门数据上传 （0x1E)  [{0}]", BitConverter.ToString(obj, i, package_len));
+                            //Trace.WriteLine(log);
+                            //Peake_Access.PrintLog(log);
 
                             int data_begin = i + 9;
                             int data_len = obj[i + 8];
@@ -153,9 +196,9 @@ namespace TransactionServer.Jobs.Peake_Access
                             int data_num = obj[data_begin];
                             for(int n =0;n<data_num;n++)
                             {
-                                log = String.Format("卡号 [{0}], 门号[{1}], 开门结果[{2}]", BitConverter.ToString(obj, data_begin+1+n*12, 4), BitConverter.ToString(obj, data_begin + 5 + n * 12, 1), BitConverter.ToString(obj, data_begin + 6 + n * 12, 1));
-                                Trace.WriteLine(log);
-                                Peake_Access.PrintLog(log);
+                                //log = String.Format("卡号 [{0}], 门号[{1}], 开门结果[{2}]", BitConverter.ToString(obj, data_begin+1+n*12, 4), BitConverter.ToString(obj, data_begin + 5 + n * 12, 1), BitConverter.ToString(obj, data_begin + 6 + n * 12, 1));
+                                //Trace.WriteLine(log);
+                                //Peake_Access.PrintLog(log);
 
                                
                                 string CardNumber = BitConverter.ToString(obj, data_begin + 1 + n * 12, 4);
@@ -177,9 +220,20 @@ namespace TransactionServer.Jobs.Peake_Access
                                 byte Mask_ValidCard = 0x80;
                                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                                 {
-                                    log = String.Format("报警： 无效刷卡 卡号[{0}], 门号[{1}]", CardNumber,DoorNumber);
+                                    int policy_id = parent.config.rules[(int)Peake_Event.Invalid].Policy_ID;
+                                    int camera_id = parent.config.rules[(int)Peake_Event.Invalid].Camera_ID;
+
+                                    log = String.Format("报警： 无效刷卡 卡号[{0}], 门号[{1}], CameraID={2}, PolicyID={3}.", CardNumber,DoorNumber,camera_id,policy_id);
                                     Trace.WriteLine(log);
                                     Peake_Access.PrintLog(log);
+
+                                    bool ret = Global.Avms.TriggerAlarm(camera_id,policy_id);
+                                    if (ret == false)
+                                    {
+                                        log = String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message);
+                                        Trace.WriteLine(log);
+                                        Peake_Access.PrintLog(log);
+                                    }
                                 }
                              }
 

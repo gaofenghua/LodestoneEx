@@ -178,6 +178,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TC4I_Global.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

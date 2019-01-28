@@ -46,7 +46,7 @@ namespace TransactionServer.Jobs.SocketServer
         protected override void Init()
         {
             // throw new NotImplementedException();
-            ShowMessageBox("This a message from SocketServer.", "Socket");
+            //ShowMessageBox("This a message from SocketServer.", "Socket");
         }
 
         protected override void Cleanup()

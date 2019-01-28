@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.IO;
 
 namespace TC4I
 {
@@ -19,7 +20,9 @@ namespace TC4I
 
     class PA_xmlConfig
     {
-        AVMS_Policy_Rule[] rules;
+        public AVMS_Policy_Rule[] rules;
+        public bool status;
+        public string message;
         public PA_xmlConfig()
         {
             // Initial array
@@ -31,12 +34,24 @@ namespace TC4I
             rules[(int)Peake_Event.Invalid].Event_Name = "无效刷卡";
             rules[(int)Peake_Event.Threat].Event_Name = "胁迫密码开门";
             // Initial end
+
+            status = false;
+            message = "";
         }
 
         public void Load_Config()
         {
-            XDocument xd = XDocument.Load("transaction.conf");
+            string file = System.Windows.Forms.Application.StartupPath.ToString() + @"\" + "transaction.conf";
+            if(File.Exists(file)==false)
+            {
+                message = String.Format("{0} does not exist.", file);
+                status = false;
+                return;
+            }
+            
 
+            XDocument xd = XDocument.Load(file);
+           
             var query = from s in xd.Descendants()
                         where s.Name.LocalName == "rule" && s.Parent.Name.LocalName == "rule_event_map" && s.Attribute("name").Value == "Peake"
                         select s;
@@ -65,6 +80,19 @@ namespace TC4I
                     }
                 }
             }
+
+            //Check to see if there's any configuration settled.
+            for (int i = 0; i < (int)Peake_Event.End + 1; i++)
+            {
+                if(rules[i].Policy_ID != -1 && rules[i].Camera_ID != -1)
+                {
+                    status = true;
+                    return;
+                }
+            }
+            status = false;
+            message = "No rule configged for Peake_Access.";
+            return;
         }
     }
 }

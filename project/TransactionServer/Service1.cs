@@ -42,9 +42,10 @@ namespace TransactionServer
             //// debug
             //Thread.Sleep(1000 * 30);
             ////
+
             //SocketServer.ShowMessageBox("On Start.", "Socket"); //Could not stop the process
 
-            
+
             this.runJobs();
         }
 

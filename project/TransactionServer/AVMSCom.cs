@@ -15,11 +15,13 @@ using Seer.SDK.NotificationMonitors;
 using Seer.DeviceModel.Client;
 using Seer.Connectivity;
 using Seer.Utilities;
+using Seer.FarmLib.Client;
 
 namespace TransactionServer
 {
     public class AVMSCom
     {
+        public string message;
         public string IpAddress { get; set; }
         public string Username { get; set; }
         public string Password { get; set; }
@@ -298,6 +300,48 @@ namespace TransactionServer
 
         }
 
+        private AutoResetEvent m_waitForServerConnection = new AutoResetEvent(false);
+        private void Server_StateChanged(object sender, Seer.BaseLibCS.ValueChangedEventArgs<CServer.ServerState> e)
+        {
+            if (e.NewValue == e.PreviousValue)
+                return;
+
+            if (e.NewValue == CServer.ServerState.Connected)
+                m_waitForServerConnection.Set();
+        }
+        public bool TriggerAlarm(int camera_id, int policy_id)
+        {
+            bool ret = IsConnected;
+
+            CCamera camera = null;
+
+            string tbUTCTime = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
+            int alarmTime = Int32.Parse(tbUTCTime);
+
+            camera = Farm.DeviceManager.GetCameraById((uint)camera_id);
+            if(camera == null)
+            {
+                message = string.Format("Failed to find camera id={0}.(Policy_id={1})", camera_id,policy_id);
+                return false;
+            }
+
+            if (camera.Server.State != CServer.ServerState.Connected)
+            {
+                camera.Server.StateChanged += new EventHandler<Seer.BaseLibCS.ValueChangedEventArgs<CServer.ServerState>>(Server_StateChanged);
+
+                // wait one minute				
+                if (!m_waitForServerConnection.WaitOne(TimeSpan.FromMinutes(2)))
+                {
+                    //return "Failed to connect to server";
+                    message = string.Format("Failed to connect to camera id={0}", camera_id);
+                    return false;
+                }
+
+            }
+
+            ret = AddAlarm(camera, alarmTime, policy_id, "OK", "OK");
+            return ret;
+        }
         public bool AddAlarm(CCamera cam, int alarmTime, int policyID, string alarmText1, string alarmText2)
         {
             try

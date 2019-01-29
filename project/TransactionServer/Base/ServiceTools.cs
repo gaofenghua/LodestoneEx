@@ -63,9 +63,12 @@ namespace TransactionServer.Base
         {
             using (StreamWriter sw = new StreamWriter(path, isAppend, System.Text.Encoding.UTF8))
             {
-                sw.WriteLine(DateTime.Now);
-                sw.WriteLine(cont);
-                //sw.WriteLine("");
+                //sw.WriteLine(DateTime.Now);
+                //sw.WriteLine(cont);
+                
+                string log = string.Format("{0}  {1}", DateTime.Now, cont);
+                sw.WriteLine(log);
+
                 sw.Close();
             }
         }

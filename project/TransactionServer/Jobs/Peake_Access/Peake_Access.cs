@@ -7,6 +7,7 @@ using System.Diagnostics;
 using TransactionServer.Base;
 using socket.framework.Client;
 using TC4I;
+using System.Threading;
 
 namespace TransactionServer.Jobs.Peake_Access
 {
@@ -15,9 +16,12 @@ namespace TransactionServer.Jobs.Peake_Access
         private static bool m_bPrintLogAllowed = true;
         private const string JOB_LOG_FILE = "TransactionServer_Peake_Access.log";
 
-        private PA_Socket client;
+        public PA_Socket client;
         public PA_xmlConfig config;
-     
+
+        System.Threading.Timer heartbeat_timer;
+        int heartbeat = 0;
+
         protected override void Init()
         {
             // throw new NotImplementedException();
@@ -53,7 +57,7 @@ namespace TransactionServer.Jobs.Peake_Access
             this.m_IsRunning = false;
         }
 
-        private void executeLogic()
+        public void executeLogic()
         {
             string log;
             log = String.Format("++++++++++++ Peake_Access Started +++++++++++++++");
@@ -114,6 +118,9 @@ namespace TransactionServer.Jobs.Peake_Access
             // client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
             //client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
 
+            //heartbeat_timer = new System.Threading.Timer(HeartBeat, null, 1000, 3000);
+            heartbeat_timer = new Timer(HeartBeat, null, 3000, Timeout.Infinite);
+
         }
 
         public static void PrintLog(string text)
@@ -125,13 +132,51 @@ namespace TransactionServer.Jobs.Peake_Access
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
 
+        public void HeartBeat(object obj)
+        {
+            byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+            client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
 
+            heartbeat = heartbeat - 1;
+
+            if(heartbeat < -5)
+            {
+                if(client.status !=  Socket_Status.Connecting)
+                {
+                    client.ReConnect();
+                    heartbeat = 0;
+
+                    string log = String.Format("error: Peake_Access heartbeat failed ({0}). Re-Connecting...", heartbeat);
+                    Trace.WriteLine(log);
+                    PrintLog(log);
+                }
+                
+                //return;
+            }
+
+            heartbeat_timer.Change(3000, Timeout.Infinite);
+        }
+
+        public bool is_HeartBeat(byte[] data)
+        {
+            if (data.Length == 4 && data[0] == 0xaa && data[1] == 0xaa && data[2] == 0x00 && data[3] == 0xbb)
+            {
+                heartbeat = 0;
+                return true;
+            }
+            return false;
+        }
     }
 
+    enum Socket_Status { Init, Connecting, Normal };
     class PA_Socket
     {
         public Peake_Access parent;
-        TcpPushClient client;
+        public TcpPushClient client;
+        public string ip_add;
+        public int port_num;
+        
+        public Socket_Status status;
         public PA_Socket(int receiveBufferSize, string ip, int port)
         {
             client = new TcpPushClient(receiveBufferSize);
@@ -142,6 +187,10 @@ namespace TransactionServer.Jobs.Peake_Access
             client.OnDisconnect += Client_OnDisconnect;
 
             client.Connect(ip, port);
+
+            status = Socket_Status.Connecting;
+            ip_add = ip;
+            port_num = port;
         }
         private void Client_OnClose()
         {
@@ -164,6 +213,12 @@ namespace TransactionServer.Jobs.Peake_Access
             log = String.Format("Peake_Access Received [{0}]",rev);
             Trace.WriteLine(log);
             Peake_Access.PrintLog(log);
+
+            // Treat as heartbeat
+            if(parent.is_HeartBeat(obj) == true)
+            {
+                return;
+            }
 
             int i = 0;
             while (i < obj.Length)
@@ -253,6 +308,8 @@ namespace TransactionServer.Jobs.Peake_Access
         private void Client_OnConnect(bool obj)
         {
             Console.WriteLine($"pack连接{obj}");
+
+            status = Socket_Status.Normal;
         }
 
         public void Send(byte[] data, int offset, int length)
@@ -269,6 +326,17 @@ namespace TransactionServer.Jobs.Peake_Access
         public void Close()
         {
             client.Close();
+        }
+
+        public void ReConnect()
+        {
+            if(status == Socket_Status.Connecting)
+            {
+                Console.WriteLine($"warning: Socket ReConnect, but the status is Connecting.");
+                return;
+            }
+            client.Close();
+            client.Connect(ip_add, port_num);
         }
     }
 }

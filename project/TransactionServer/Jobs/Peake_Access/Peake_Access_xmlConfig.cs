@@ -8,6 +8,7 @@ using System.IO;
 
 namespace TC4I
 {
+    //Policy Rules
     struct AVMS_Policy_Rule
     {
         public int Policy_ID;

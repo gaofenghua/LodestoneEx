@@ -1,7 +1,0 @@
-D:\Axis_Code\LodeStoneEx\output\bin\Debug\TransactionServer.exe.config
-D:\Axis_Code\LodeStoneEx\project\TransactionServer\obj\x86\Debug\WindowsService.ProjectInstaller.resources
-D:\Axis_Code\LodeStoneEx\project\TransactionServer\obj\x86\Debug\TransactionServer.csproj.GenerateResource.Cache
-D:\Axis_Code\LodeStoneEx\output\bin\Debug\TransactionServer.exe
-D:\Axis_Code\LodeStoneEx\output\bin\Debug\TransactionServer.pdb
-D:\Axis_Code\LodeStoneEx\project\TransactionServer\obj\x86\Debug\TransactionServer.exe
-D:\Axis_Code\LodeStoneEx\project\TransactionServer\obj\x86\Debug\TransactionServer.pdb

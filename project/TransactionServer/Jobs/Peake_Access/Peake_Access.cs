@@ -16,12 +16,11 @@ namespace TransactionServer.Jobs.Peake_Access
         private static bool m_bPrintLogAllowed = true;
         private const string JOB_LOG_FILE = "TransactionServer_Peake_Access.log";
 
-        public PA_Socket client;
+        //public PA_Socket client;
+        public PA_Socket[] sockets;
         public PA_xmlConfig config;
 
-        System.Threading.Timer heartbeat_timer;
-        int heartbeat = 0;
-
+  
         protected override void Init()
         {
             // throw new NotImplementedException();
@@ -52,7 +51,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
         protected override void Stop()
         {
-            client.Close();
+            //client.Close();
 
             this.m_IsRunning = false;
         }
@@ -65,14 +64,32 @@ namespace TransactionServer.Jobs.Peake_Access
             PrintLog(log);
 
             config = new PA_xmlConfig();
-            config.Load_Config();
-            if(config.status == false)
+            config.Load_Systems();
+            if (config.status == false)
             {
-                log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.",config.message);
+                log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.", config.message);
                 Trace.WriteLine(log);
                 PrintLog(log);
                 return;
             }
+            else if (config.message != "")
+            {
+                log = String.Format("{0}", config.message);
+                Trace.WriteLine(log);
+                PrintLog(log);
+            }
+
+          
+
+            //config = new PA_xmlConfig();
+            //config.Load_Config();
+            //if(config.status == false)
+            //{
+            //    log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.",config.message);
+            //    Trace.WriteLine(log);
+            //    PrintLog(log);
+            //    return;
+            //}
 
             for (int i = 0; i < 5; i++)
             {
@@ -102,24 +119,30 @@ namespace TransactionServer.Jobs.Peake_Access
             PrintLog(log);
 
 
-          
-            int port = 5768;
-            string ip = "192.168.77.101";
-            int receiveBufferSize = 1024;
-   
-            client = new PA_Socket(receiveBufferSize,ip,port);
-            client.parent = this;
+            int n_controller = config.Controllers.Count;
+            sockets = new PA_Socket[n_controller];
 
-            byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
-            byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
-            byte[] Peak_Package_CMD_OpenDoor = { 0x7e, 0x20, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x37, 0x03 };
+            for(int i=0;i<n_controller;i++)
+            {
+                PA_Controller con = config.Controllers[i];
+                sockets[i] = new PA_Socket(con);
+                sockets[i].parent = this;
 
-            client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
-            // client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
-            //client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
+                byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+                sockets[i].Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+            }
 
-            //heartbeat_timer = new System.Threading.Timer(HeartBeat, null, 1000, 3000);
-            heartbeat_timer = new Timer(HeartBeat, null, 3000, Timeout.Infinite);
+ 
+
+            //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+            //byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
+            //byte[] Peak_Package_CMD_OpenDoor = { 0x7e, 0x20, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x37, 0x03 };
+
+            //client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+            //// client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
+            ////client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
+
+     
 
         }
 
@@ -132,51 +155,54 @@ namespace TransactionServer.Jobs.Peake_Access
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
 
-        public void HeartBeat(object obj)
-        {
-            byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
-            client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+  
 
-            heartbeat = heartbeat - 1;
 
-            if(heartbeat < -5)
-            {
-                if(client.status !=  Socket_Status.Connecting)
-                {
-                    client.ReConnect();
-                    heartbeat = 0;
-
-                    string log = String.Format("error: Peake_Access heartbeat failed ({0}). Re-Connecting...", heartbeat);
-                    Trace.WriteLine(log);
-                    PrintLog(log);
-                }
-                
-                //return;
-            }
-
-            heartbeat_timer.Change(3000, Timeout.Infinite);
-        }
-
-        public bool is_HeartBeat(byte[] data)
-        {
-            if (data.Length == 4 && data[0] == 0xaa && data[1] == 0xaa && data[2] == 0x00 && data[3] == 0xbb)
-            {
-                heartbeat = 0;
-                return true;
-            }
-            return false;
-        }
     }
 
-    enum Socket_Status { Init, Connecting, Normal };
+    enum Socket_Status { Init, Connecting, Normal, Connect_Failed };
     class PA_Socket
     {
+        System.Threading.Timer heartbeat_timer;
+        int heartbeat = 0;
+
         public Peake_Access parent;
         public TcpPushClient client;
+
+        public int id;
         public string ip_add;
         public int port_num;
+        AVMS_Policy_Rule[] rules;
+       
         
         public Socket_Status status;
+
+        public PA_Socket(PA_Controller con)
+        {
+            id = con.ID;
+            ip_add = con.IP;
+            port_num = con.Port;
+
+            int n_rule = con.Rules.Count();
+            rules = new AVMS_Policy_Rule[n_rule];
+
+            for(int i=0;i<n_rule;i++)
+            {
+                rules[i] = con.Rules[i];
+            }
+
+            client = new TcpPushClient(1024);
+            client.OnConnect += Client_OnConnect;
+            client.OnReceive += Client_OnReceive;
+            client.OnSend += Client_OnSend;
+            client.OnClose += Client_OnClose;
+            client.OnDisconnect += Client_OnDisconnect;
+
+            client.Connect(ip_add, port_num);
+
+            status = Socket_Status.Connecting;
+          
+        }
         public PA_Socket(int receiveBufferSize, string ip, int port)
         {
             client = new TcpPushClient(receiveBufferSize);
@@ -196,7 +222,7 @@ namespace TransactionServer.Jobs.Peake_Access
         {
             Console.WriteLine($"pack断开");
 
-            string log = String.Format("-------------- Peake_Access Closed -----------------");
+            string log = String.Format("Peake_Access Closed. id={0}, ip={1}",id,ip_add);
             Trace.WriteLine(log);
             Peake_Access.PrintLog(log);
         }
@@ -209,16 +235,16 @@ namespace TransactionServer.Jobs.Peake_Access
         {
             string rev = BitConverter.ToString(obj);
 
-            string log;
-            log = String.Format("Peake_Access Received [{0}]",rev);
-            Trace.WriteLine(log);
-            Peake_Access.PrintLog(log);
-
             // Treat as heartbeat
-            if(parent.is_HeartBeat(obj) == true)
+            if(is_HeartBeat(obj) == true)
             {
                 return;
             }
+
+            string log;
+            log = String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id);
+            Trace.WriteLine(log);
+            Peake_Access.PrintLog(log);
 
             int i = 0;
             while (i < obj.Length)
@@ -275,14 +301,14 @@ namespace TransactionServer.Jobs.Peake_Access
                                 byte Mask_ValidCard = 0x80;
                                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                                 {
-                                    int policy_id = parent.config.rules[(int)Peake_Event.Invalid].Policy_ID;
-                                    int camera_id = parent.config.rules[(int)Peake_Event.Invalid].Camera_ID;
+                                    int policy_id = rules[(int)Peake_Event.Invalid].Policy_ID;
+                                    int camera_id = rules[(int)Peake_Event.Invalid].Camera_ID;
 
-                                    log = String.Format("报警： 无效刷卡 卡号[{0}], 门号[{1}], CameraID={2}, PolicyID={3}.", CardNumber,DoorNumber,camera_id,policy_id);
+                                    log = String.Format("报警： 无效刷卡 卡号[{0}], 门号[{1}], CameraID={2}, PolicyID={3}.", CardNumber, DoorNumber, camera_id, policy_id);
                                     Trace.WriteLine(log);
                                     Peake_Access.PrintLog(log);
 
-                                    bool ret = Global.Avms.TriggerAlarm(camera_id,policy_id);
+                                    bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
                                     if (ret == false)
                                     {
                                         log = String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message);
@@ -309,7 +335,25 @@ namespace TransactionServer.Jobs.Peake_Access
         {
             Console.WriteLine($"pack连接{obj}");
 
-            status = Socket_Status.Normal;
+            if(obj == false)
+            {
+                status = Socket_Status.Connect_Failed;
+                Close();
+
+                string log = String.Format("error: Peake_Access Connect failed. id={2}, ip={0}, port={1}. Close.", ip_add,port_num,id);
+                Trace.WriteLine(log);
+                Peake_Access.PrintLog(log);
+            }
+            else
+            {
+                status = Socket_Status.Normal;
+                heartbeat_timer = new Timer(HeartBeat, null, 3000, Timeout.Infinite);
+
+                string log = String.Format("Peake_Access Connected. id={2}, ip={0}, port={1}. ", ip_add, port_num, id);
+                Trace.WriteLine(log);
+                Peake_Access.PrintLog(log);
+            }
+            
         }
 
         public void Send(byte[] data, int offset, int length)
@@ -337,6 +381,42 @@ namespace TransactionServer.Jobs.Peake_Access
             }
             client.Close();
             client.Connect(ip_add, port_num);
+        }
+
+        public void HeartBeat(object obj)
+        {
+            byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+            client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+
+            heartbeat = heartbeat - 1;
+
+            if (heartbeat < -5)
+            {
+                if (status != Socket_Status.Connecting)
+                {
+                    ReConnect();
+                    heartbeat = 0;
+
+                    string log = String.Format("error: Peake_Access heartbeat failed ({0}). Re-Connecting... id={1}, ip={2}, port={3}. ", heartbeat,id,ip_add,port_num);
+                    Trace.WriteLine(log);
+                    Peake_Access.PrintLog(log);
+                    
+                }
+
+                //return;
+            }
+
+            heartbeat_timer.Change(3000, Timeout.Infinite);
+        }
+
+        public bool is_HeartBeat(byte[] data)
+        {
+            if (data.Length == 4 && data[0] == 0xaa && data[1] == 0xaa && data[2] == 0x00 && data[3] == 0xbb)
+            {
+                heartbeat = 0;
+                return true;
+            }
+            return false;
         }
     }
 }

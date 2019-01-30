@@ -211,6 +211,8 @@
   <PropertyGroup>
     <PostBuildEvent>xcopy "$(ProjectDir)Install.bat" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(ProjectDir)UnInstall.bat" "$(SolutionDir)..\output\bin\Debug\" /Y
+xcopy "$(ProjectDir)stop.bat" "$(SolutionDir)..\output\bin\Debug\" /Y
+xcopy "$(ProjectDir)reinstall.bat" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(SolutionDir)..\input\library\dll\x64\libcurl.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(SolutionDir)..\input\library\dll\x64\LibCurlNet.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(SolutionDir)..\input\library\dll\x64\LibCurlShim.dll" "$(SolutionDir)..\output\bin\Debug\" /Y

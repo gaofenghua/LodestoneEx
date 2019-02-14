@@ -3,6 +3,9 @@ using System.Collections.Specialized;
 using System.Configuration;
 using System.Xml;
 using System.IO;
+using System.Threading.Tasks;
+using System.Text;
+using TransactionServer.Jobs.Peake_Access;
 
 namespace TransactionServer.Base
 {
@@ -61,16 +64,22 @@ namespace TransactionServer.Base
         /// <param name="isAppend"></param>
         public static void WriteLog(string path, string cont, bool isAppend)
         {
+            Peake_Access.LogWriteLock.EnterWriteLock();
             using (StreamWriter sw = new StreamWriter(path, isAppend, System.Text.Encoding.UTF8))
             {
                 //sw.WriteLine(DateTime.Now);
                 //sw.WriteLine(cont);
+
                 
+
                 string log = string.Format("{0}  {1}", DateTime.Now, cont);
                 sw.WriteLine(log);
 
                 sw.Close();
+
+               
             }
+            Peake_Access.LogWriteLock.ExitWriteLock();
         }
 
         /// <summary>

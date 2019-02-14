@@ -28,13 +28,15 @@ namespace TransactionServer.Jobs.Peake_Access
 
         private static bool m_bPrintLogAllowed = true;
         private const string JOB_LOG_FILE = "TransactionServer_Peake_Access.log";
+        public static ReaderWriterLockSlim LogWriteLock = new ReaderWriterLockSlim();
 
         //public PA_Socket client;
         public PA_Socket[] sockets;
         public PA_xmlConfig config;
 
         public static int Door_Number = 8;
-  
+
+        public static int socket_count = 0;
      
         protected override void Init()
         {
@@ -73,47 +75,26 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void executeLogic()
         {
-            string log;
-            log = String.Format("++++++++++++ Peake_Access Started +++++++++++++++");
-            Trace.WriteLine(log);
-            PrintLog(log);
+            Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
 
             config = new PA_xmlConfig();
             config.Load_Systems();
             if (config.status == false)
             {
-                log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.", config.message);
-                Trace.WriteLine(log);
-                PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("error: configuration load failed, {0} Exit Peake_Access process.", config.message));
                 return;
             }
             else if (config.message != "")
             {
-                log = String.Format("{0}", config.message);
-                Trace.WriteLine(log);
-                PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("{0}", config.message));
             }
-
-          
-
-            //config = new PA_xmlConfig();
-            //config.Load_Config();
-            //if(config.status == false)
-            //{
-            //    log = String.Format("error: configuration load failed, {0} Exit Peake_Access process.",config.message);
-            //    Trace.WriteLine(log);
-            //    PrintLog(log);
-            //    return;
-            //}
 
             for (int i = 0; i < 5; i++)
             {
                 if (Global.Avms.IsConnected == false)
                 {
-                    log = String.Format("AVMS server is not connected. Wait 3 seconds and will try again");
+                    Peake_Access.PrintLog(0, String.Format("AVMS server is not connected. Wait 3 seconds and will try again"));
                     System.Threading.Thread.Sleep(3000);
-                    Trace.WriteLine(log);
-                    PrintLog(log);
                 }
                 else
                 {
@@ -123,15 +104,11 @@ namespace TransactionServer.Jobs.Peake_Access
 
             if (Global.Avms.IsConnected == false)
             {
-                log = String.Format("error: AVMS server is not connected. Exit Peake_Access process.");
-                Trace.WriteLine(log);
-                PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("error: AVMS server is not connected. Exit Peake_Access process."));
                 return;
             }
-          
-            log = String.Format("AVMS server connected. Straring Peake_Access process.");
-            Trace.WriteLine(log);
-            PrintLog(log);
+
+            Peake_Access.PrintLog(0, String.Format("AVMS server connected. Straring Peake_Access process."));
 
 
             int n_controller = config.Controllers.Count;
@@ -142,9 +119,9 @@ namespace TransactionServer.Jobs.Peake_Access
                 PA_Controller con = config.Controllers[i];
                 sockets[i] = new PA_Socket(con);
                 sockets[i].parent = this;
-
-                byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
-                sockets[i].Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+                Thread.Sleep(200);
+                //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+                //sockets[i].Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
                 
                 //// Check rules
                 //sockets[i].Print_Rules();
@@ -164,12 +141,21 @@ namespace TransactionServer.Jobs.Peake_Access
 
         }
 
-        public static void PrintLog(string text)
+        public static void PrintLog(int index, string text)
         {
+            Trace.WriteLine(text);
+
             if (!m_bPrintLogAllowed)
             {
                 return;
             }
+
+            if(index == 2 )
+            {
+                return;
+            }
+
+            text = "Log=" + index.ToString() + " " + text;
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
 
@@ -181,8 +167,15 @@ namespace TransactionServer.Jobs.Peake_Access
     enum Socket_Status { Init, Connecting, Normal, Connect_Failed };
     class PA_Socket
     {
-        System.Threading.Timer heartbeat_timer;
+        System.Threading.Timer heartbeat_timer = null;
+        int Time_Interval = 1000;
+        
         int heartbeat = 0;
+
+        DateTime First_Reconnect_time = DateTime.MinValue;
+        int Max_Reconnect_times = 5;
+        TimeSpan Min_TimeSpan = TimeSpan.FromMinutes(5);
+        int Reconnect_Times = 0;
 
         public Peake_Access parent;
         public TcpPushClient client;
@@ -201,17 +194,13 @@ namespace TransactionServer.Jobs.Peake_Access
                 //return;
             }
 
-            string log = String.Format("\r\n\r\nPA_Socket: id={0}, ip={1}",id,ip_add);
-            Trace.WriteLine(log);
-            Peake_Access.PrintLog(log);
+            Peake_Access.PrintLog(0, String.Format("\r\n\r\nPA_Socket: id={0}, ip={1}",id,ip_add));
 
             for (int i = 0; i < Peake_Access.Door_Number+1; i++)
             {
                 for (int j = 0; j < (int)Peake_Event.End; j++)
                 {
-                    log = String.Format("rules[{0},{1}] policy={2}, camera={3} door={0}, event={4}, event_name={5}. ",i,j,rules[i,j].Policy_ID,rules[i,j].Camera_ID,j,Peake_Access.Event_Name[j]);
-                    Trace.WriteLine(log);
-                    Peake_Access.PrintLog(log);
+                    Peake_Access.PrintLog(0, String.Format("rules[{0},{1}] policy={2}, camera={3} door={0}, event={4}, event_name={5}. ",i,j,rules[i,j].Policy_ID,rules[i,j].Camera_ID,j,Peake_Access.Event_Name[j]));
                 }
             }
         }
@@ -220,6 +209,8 @@ namespace TransactionServer.Jobs.Peake_Access
             id = con.ID;
             ip_add = con.IP;
             port_num = con.Port;
+
+            First_Reconnect_time = DateTime.MinValue;
 
             rules = new AVMS_Policy_Rule[Peake_Access.Door_Number+1,(int)Peake_Event.End];
 
@@ -241,7 +232,8 @@ namespace TransactionServer.Jobs.Peake_Access
             client.Connect(ip_add, port_num);
 
             status = Socket_Status.Connecting;
-          
+
+  
         }
         public PA_Socket(int receiveBufferSize, string ip, int port)
         {
@@ -254,6 +246,8 @@ namespace TransactionServer.Jobs.Peake_Access
 
             client.Connect(ip, port);
 
+            Peake_Access.socket_count += 1;
+
             status = Socket_Status.Connecting;
             ip_add = ip;
             port_num = port;
@@ -262,13 +256,13 @@ namespace TransactionServer.Jobs.Peake_Access
         {
             Console.WriteLine($"pack断开");
 
-            string log = String.Format("Peake_Access Closed. id={0}, ip={1}",id,ip_add);
-            Trace.WriteLine(log);
-            Peake_Access.PrintLog(log);
+            Peake_Access.PrintLog(0, String.Format("Peake_Access OnClosed. id={0}, ip={1}",id,ip_add));
         }
         private void Client_OnDisconnect()
         {
             Console.WriteLine($"pack中断");
+
+            Peake_Access.PrintLog(0, String.Format("Peake_Access OnDisconnect. id={0}, ip={1}", id, ip_add));
         }
 
         public void Client_OnReceive(byte[] obj)
@@ -281,10 +275,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            string log;
-            log = String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id);
-            Trace.WriteLine(log);
-            Peake_Access.PrintLog(log);
+            Peake_Access.PrintLog(0, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
 
             int i = 0;
             while (i < obj.Length)
@@ -303,14 +294,10 @@ namespace TransactionServer.Jobs.Peake_Access
                             ParseData_0x1A(data_begin, data_len, obj);
                             break;
                         case 0xd0:  //启用主动上传模式（0xD0）
-                            log = String.Format("Peake_Access received package: 启用主动上传模式  [{0}]", BitConverter.ToString(obj,i,package_len));
-                            Trace.WriteLine(log);
-                            Peake_Access.PrintLog(log);
+                            Peake_Access.PrintLog(0, String.Format("Peake_Access received package: 启用主动上传模式  [{0}]", BitConverter.ToString(obj,i,package_len)));
                             break;
                         case 0xd1: //上传全部报警数据（0xD1）
-                            log = String.Format("Peake_Access received package: 上传全部报警数据（0xD1）  [{0}]", BitConverter.ToString(obj, i, package_len));
-                            Trace.WriteLine(log);
-                            Peake_Access.PrintLog(log);
+                            Peake_Access.PrintLog(0, String.Format("Peake_Access received package: 上传全部报警数据（0xD1）  [{0}]", BitConverter.ToString(obj, i, package_len)));
                             break;
                         case 0x1e: //刷卡/密码开门数据上传 （0x1E)
 
@@ -373,27 +360,31 @@ namespace TransactionServer.Jobs.Peake_Access
 
         private void Client_OnConnect(bool obj)
         {
-            Console.WriteLine($"pack连接{obj}");
+            //Console.WriteLine($"pack连接{obj}");
 
-            if(obj == false)
+            if (obj == false)
             {
                 status = Socket_Status.Connect_Failed;
-                Close();
 
-                string log = String.Format("error: Peake_Access Connect failed. id={2}, ip={0}, port={1}. Close.", ip_add,port_num,id);
-                Trace.WriteLine(log);
-                Peake_Access.PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("error: Peake_Access Connect failed. id={2}, ip={0}, port={1}. Close.", ip_add, port_num, id));
             }
             else
             {
                 status = Socket_Status.Normal;
-                heartbeat_timer = new Timer(HeartBeat, null, 3000, Timeout.Infinite);
 
-                string log = String.Format("Peake_Access Connected. id={2}, ip={0}, port={1}. ", ip_add, port_num, id);
-                Trace.WriteLine(log);
-                Peake_Access.PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("Peake_Access Connected. id={2}, ip={0}, port={1}. ", ip_add, port_num, id));
             }
-            
+
+            heartbeat = 0;
+            if (heartbeat_timer == null)
+            {
+                heartbeat_timer = new Timer(HeartBeat, null, Time_Interval, Timeout.Infinite);
+            }
+            else
+            {
+                heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
+            }
+
         }
 
         public void Send(byte[] data, int offset, int length)
@@ -405,6 +396,13 @@ namespace TransactionServer.Jobs.Peake_Access
         private void Client_OnSend(int obj)
         {
             Console.WriteLine($"pack已发送长度{obj}");
+
+            //if(id == 20)
+            //{
+            //    string log = String.Format("Debugging: Socket OnSend, client.connected = {0}, id={1}, obj={2}.", client.Connected, id, obj);
+            //    Trace.WriteLine(log);
+            //    Peake_Access.PrintLog(log);
+            //}
         }
 
         public void Close()
@@ -412,47 +410,91 @@ namespace TransactionServer.Jobs.Peake_Access
             client.Close();
         }
 
+        public bool Check_Reconnect_TooMany()
+        {
+            if (First_Reconnect_time == DateTime.MinValue)
+            {
+                First_Reconnect_time = DateTime.Now;
+            }
+
+            if (Reconnect_Times > Max_Reconnect_times)
+            {
+                TimeSpan timespan = DateTime.Now - First_Reconnect_time;
+                if (timespan < Min_TimeSpan)
+                {
+                    return true;
+                }
+                else
+                {
+                    // To be continue...
+                }
+            }
+            return false;
+        }
         public void ReConnect()
         {
-            if(status == Socket_Status.Connecting)
+            if (status == Socket_Status.Connecting)
             {
-                Console.WriteLine($"warning: Socket ReConnect, but the status is Connecting.");
                 return;
             }
+
+            if(Check_Reconnect_TooMany() == true)
+            {
+                Peake_Access.PrintLog(0, String.Format("error: Socket reconnect too frequently, Force close. id={0}. {1} - {2} reconnect {3} times", id, First_Reconnect_time, DateTime.Now, Reconnect_Times));
+         
+                Close();
+                return;
+            }
+
+            Reconnect_Times = Reconnect_Times + 1;
+            status = Socket_Status.Connecting;
+
+            Peake_Access.PrintLog(0, String.Format("Warning: Socket ReConnecting, client.connected = {0}, id={1}.", client.Connected, id));
+
+            Peake_Access.socket_count += 1;
+
             client.Close();
-            client.Connect(ip_add, port_num);
+            Thread.Sleep(500);
+            client.Reconnect(ip_add, port_num);
+
         }
 
         public void HeartBeat(object obj)
         {
-            byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
-            client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
-
-            heartbeat = heartbeat - 1;
-
             if (heartbeat < -5)
             {
                 if (status != Socket_Status.Connecting)
                 {
+                    Peake_Access.PrintLog(0, String.Format("Warning: Socket Heartbeat failed. Start Reconnect, client.connected = {0}, id={1}.", client.Connected, id));
                     ReConnect();
                     heartbeat = 0;
-
-                    string log = String.Format("error: Peake_Access heartbeat failed ({0}). Re-Connecting... id={1}, ip={2}, port={3}. ", heartbeat,id,ip_add,port_num);
-                    Trace.WriteLine(log);
-                    Peake_Access.PrintLog(log);
-                    
+                    return;
                 }
-
-                //return;
             }
 
-            heartbeat_timer.Change(3000, Timeout.Infinite);
+            if (client.Connected == true)
+            {
+                byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
+                Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
+
+                if (id == 20)
+                {
+                    Peake_Access.PrintLog(2, String.Format("Debugging: HeartBeat sent, client.connected = {0}, status={2}, id={1}.", client.Connected, id, status));
+                }
+            }
+            heartbeat = heartbeat - 1;
+            heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
         }
 
         public bool is_HeartBeat(byte[] data)
         {
             if (data.Length == 4 && data[0] == 0xaa && data[1] == 0xaa && data[2] == 0x00 && data[3] == 0xbb)
             {
+                if (id == 20)
+                {
+                    Peake_Access.PrintLog(2, String.Format("Debugging: HeartBeat received, client.connected = {0}, id={1}.", client.Connected, id));
+                }
+
                 heartbeat = 0;
                 return true;
             }
@@ -532,13 +574,9 @@ namespace TransactionServer.Jobs.Peake_Access
                 bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
                 if (ret == false)
                 {
-                    log = String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message);
-                    Trace.WriteLine(log);
-                    Peake_Access.PrintLog(log);
+                    Peake_Access.PrintLog(0, String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message));
                 }
-                log = String.Format("报警：{0}, 控制器={1}, 门号={2}, CameraID={3}, PolicyID={4}.", Peake_Access.Event_Name[PA_Event], id, door_num, camera_id, policy_id);
-                Trace.WriteLine(log);
-                Peake_Access.PrintLog(log);
+                Peake_Access.PrintLog(0, String.Format("报警：{0}, 控制器={1}, 门号={2}, CameraID={3}, PolicyID={4}.", Peake_Access.Event_Name[PA_Event], id, door_num, camera_id, policy_id));
             }
         }
     }

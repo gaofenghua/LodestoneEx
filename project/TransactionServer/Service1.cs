@@ -13,7 +13,6 @@ using System.Reflection;
 using System.Threading;
 // customize
 using TransactionServer.Base;
-using TransactionServer.Jobs.SocketServer;
 
 
 namespace TransactionServer
@@ -39,13 +38,9 @@ namespace TransactionServer
 
         protected override void OnStart(string[] args)
         {
-            //// debug
-            //Thread.Sleep(1000 * 30);
-            ////
-
-            //SocketServer.ShowMessageBox("On Start.", "Socket"); //Could not stop the process
-
-
+            // debug
+            Thread.Sleep(1000 * 60);
+            //
             this.runJobs();
         }
 
@@ -96,6 +91,21 @@ namespace TransactionServer
                         }
                     }
                 }
+
+
+                // additional config
+                if (hashJobs.ContainsKey("AVMS"))
+                {
+                    Jobs.AVMS.Job job = (Jobs.AVMS.Job)hashJobs["AVMS"];
+                    foreach (string name in hashJobs.Keys)
+                    {
+                        if (("AVMS" != name) && ("SystemInfo" != name))
+                        {
+                            job.SetPlugin(name, (ServiceJob)hashJobs[name]);
+                        }
+                    }
+                }
+
 
                 // run job
                 if (this.hashJobs.Keys.Count > 0)

@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.Xml;
 using System.Xml.Serialization;
 using System.Linq;
+using System.Windows.Forms;
 // customize
 using TransactionServer.Base;
 // AVMS SDK
@@ -31,25 +32,38 @@ using Seer.SDK.NotificationMonitors;
 using Seer.Utilities;
 // 3rd
 using Newtonsoft.Json;
+// external adaptors
+using TransactionServer.Jobs;
 
 
-namespace TransactionServer.Jobs.Job1
+namespace TransactionServer.Jobs.AVMS
 {
     public class Job : Base.ServiceJob
     {
         private Utils m_utils = new Utils();
-        private SdkFarm m_farm = null;
+        //private SdkFarm m_farm = null;
         private AlarmMonitor m_alarmMonitor;
+        private EventMonitor m_eventMonitor;
         private ManualResetEvent m_waitForServerInitialized = new ManualResetEvent(false);
+
+        private AVMSCom m_avms = null;
+        public delegate void MessageHandler(MessageEventArgs e);
+
+        // external adaptors
+        private Bosch.IP7400.Job bosch_ip7400_adaptor = null;
+        
+
         // flag
-        private bool m_bConnectedToServer = false;
+        private bool m_bConnectedToAVMSServer = false;
         private bool m_bStartedListener = false;
         private bool m_bDeviceModelEventHandlerAdded = false;
-        private bool m_bListenerEventHandlerAdded = false;
+        private bool m_bAVMSListenerEventHandlerAdded = false;
         private bool m_bAcquiredServerList = false;
         private bool m_bAcquiredCameraList = false;
         private bool m_bPrintLogAllowed = false;
         private bool m_bDatabaseAccessAllowed = false;
+        private bool m_bAVMSMessageSend = false;
+        private bool m_bExternalJobEventSend = false;
         // data
         string m_serverIp = string.Empty;
         string m_serverUsername = string.Empty;
@@ -69,6 +83,30 @@ namespace TransactionServer.Jobs.Job1
         private const string RULE_EVENT_CONFIG = "transaction.conf";
         private const string JOB_LOG_FILE = "TransactionServer_Job1.log";
 
+        private SdkFarm m_farm
+        {
+            get
+            {
+                if (null != m_avms)
+                {
+                    return m_avms.Farm;
+                }
+                return null;
+            }
+        }
+
+        private CDeviceManager m_deviceManager
+        {
+            get
+            {
+                if (null != m_farm)
+                {
+                    return m_farm.DeviceManager;
+                }
+                return null;
+            }
+        }
+
         public enum AlarmType
         {
             [Description("Unknown")]
@@ -82,13 +120,66 @@ namespace TransactionServer.Jobs.Job1
             CUSTOMIZED = 12,
         }
 
+
+        public void SetPlugin(string name, ServiceJob job)
+        {
+            Config config = this.ConfigObject as Config;
+            ArrayList plugin_names = config.PluginNames;
+
+            switch (name)
+            {
+                case "Bosch.IP7400":
+                    if (plugin_names.Contains(name))
+                    {
+                        bosch_ip7400_adaptor = (Bosch.IP7400.Job)job;
+                    }
+                    break;
+                case "Peake":
+                    if (plugin_names.Contains(name))
+                    {
+                        //
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        public void External_JobEventSend(object sender, JobEventArgs e)
+        {
+            if ((null == m_cameraList) || (0 == m_cameraList.Count))
+            {
+                return;
+            }
+
+            string msg = e.Message;
+            //Console.WriteLine(msg);
+            Trace.WriteLine(msg);
+
+
+            if (msg.Contains("ALARM_BURGLARY"))
+            {
+                CCamera cam = m_cameraList[9];
+                int alarmTime = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds);
+                bool isAdded = m_avms.AddAlarm(cam, alarmTime, 5, string.Empty, string.Empty);
+                Trace.WriteLine("Add alarm : " + isAdded);
+            }
+        }
+
+
         protected override void Init()
         {
-            //m_serverIp = IP_ADDRESS;
-            //m_serverUsername = USERNAME;
-            //m_serverPassword = Utils.EncodeString(PASSWORD);
+            m_serverIp = IP_ADDRESS;
+            m_serverUsername = USERNAME;
+            m_serverPassword = PASSWORD;    // Utils.EncodeString(PASSWORD)
 
-            //m_bPrintLogAllowed = (ServiceTools.GetAppSetting("job1_log_enabled").ToLower() == "true") ? true : false;
+            m_bPrintLogAllowed = (ServiceTools.GetAppSetting("avms_log_enabled").ToLower() == "true") ? true : false;
+
+            if ((null != bosch_ip7400_adaptor) && (!m_bExternalJobEventSend))
+            {
+                bosch_ip7400_adaptor.JobEventSend += new Bosch.IP7400.Job.JobEventHandler(this.External_JobEventSend);
+                m_bExternalJobEventSend = true;
+            }
         }
 
         protected override void Cleanup()
@@ -97,10 +188,22 @@ namespace TransactionServer.Jobs.Job1
             m_serverUsername = string.Empty;
             m_serverPassword = string.Empty;
             m_serverList.Clear();
-            m_serverList.Clear();
             m_policyTypeDesc = string.Empty;
             m_mapActionEvents = null;
             m_listActionCommands = null;
+
+            if ((null != m_avms) && (m_bAVMSMessageSend))
+            {
+                m_avms.MessageSend -= new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
+                m_bAVMSMessageSend = false;
+            }
+            m_avms = null;
+            if ((null != bosch_ip7400_adaptor) && (m_bExternalJobEventSend))
+            {
+                bosch_ip7400_adaptor.JobEventSend -= new Bosch.IP7400.Job.JobEventHandler(this.External_JobEventSend);
+                m_bExternalJobEventSend = false;
+            }
+            bosch_ip7400_adaptor = null;
         }
 
         protected override void Start()
@@ -126,22 +229,89 @@ namespace TransactionServer.Jobs.Job1
 
         protected override void Stop()
         {
-            DestroyFarm();
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            PrintLog(methodName + " start");
+
+            if (null == m_avms)
+            {
+                return;
+            }
+
+            DeleteDeviceModelEventHandler(m_deviceManager, ref m_bDeviceModelEventHandlerAdded);
+            StopAVMSListener();
+            m_avms.Disconnect();
+
             this.m_IsRunning = false;
+
+            PrintLog(methodName + " end");
+        }
+
+        private void AVMSCom_MessageSend(object sender, MessageEventArgs e)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            string message = e.Message;
+            if ((string.Empty == message) || (2 != message.Split('\t').Length))
+            {
+                PrintLog(String.Format("{0} : not invalid message", methodName));
+                return;
+            }
+
+            string time = message.Split('\t')[0];
+            switch (message.Split('\t')[1])
+            {
+                case "Connect":
+
+                    m_bConnectedToAVMSServer = m_avms.IsConnected;
+                    if (m_bConnectedToAVMSServer)
+                    {
+                        PrintLog(String.Format("{0} : [{1}]connection has been established", methodName, time));
+
+                        if (!AcquireAvailableServers())
+                        {
+                            Stop();
+                            return;
+                        }
+                        if (!AcquireAvailableDevices())
+                        {
+                            Stop();
+                            return;
+                        }
+
+                        StartAVMSListener();
+                    }
+
+                    break;
+
+                case "Disconnect":
+
+                    m_bConnectedToAVMSServer = m_avms.IsConnected;
+                    if (!m_bConnectedToAVMSServer)
+                    {
+                        PrintLog(String.Format("{0} : [{1}]connection has been broken", methodName, time));
+                    }
+
+                    break;
+
+                default:
+                    PrintLog(String.Format("{0} : [{1}]{2}", methodName, time, message.Split('\t')[1]));
+                    break;
+            }
+
+
         }
 
         private void ExecuteLogic()
         {
-            ConnectToFarm();
-            if (m_bConnectedToServer)
+            m_avms = new AVMSCom(m_serverIp, m_serverUsername, m_serverPassword);
+            //m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
+            if ((null != m_avms) && (!m_bAVMSMessageSend))
             {
-                if (!AcquireAvailableDevices())
-                {
-                    return;
-                }
-                // start listener
-                ListenToEvent();
+                m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
+                m_bAVMSMessageSend = true;
             }
+            m_avms.Connect();
         }
 
         private void PrintLog(string text)
@@ -153,127 +323,45 @@ namespace TransactionServer.Jobs.Job1
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
 
-        private void ListenToEvent()
+        private void StartAVMSListener()
         {
             string methodName = MethodBase.GetCurrentMethod().Name;
+
+            PrintLog(methodName + " start");
 
             m_bStartedListener = false;
-            if (!m_bListenerEventHandlerAdded)
+            if (null == m_alarmMonitor)
             {
                 m_alarmMonitor = new AlarmMonitor(m_farm);
-                m_alarmMonitor.AlarmReceived += new EventHandler<AlarmMessageEventArgs>(HandleAlarmMessageReceived);
-                m_bListenerEventHandlerAdded = true;
-
-                PrintLog(String.Format("{0} : success to add event handler", methodName));
             }
+            // Access event could not be supported in AlarmMonitor
+            if (null == m_eventMonitor)
+            {
+                m_eventMonitor = new EventMonitor(m_farm);
+            }
+            AddAVMSListenerEventHandler(ref m_bAVMSListenerEventHandlerAdded);
             m_bStartedListener = true;
-        }
-
-        private void ConnectToFarm()
-        {
-            string methodName = MethodBase.GetCurrentMethod().Name;
-            string sStatus = string.Empty;
-            string log = string.Empty;
-
-            PrintLog(methodName + " start");
-            try
-            {
-                DestroyFarm();
-                if (string.Empty != (sStatus = LoadFarm()))
-                {
-                    log = String.Format("{0} : LoadFarm failed [{1}]", methodName, sStatus);
-                    Trace.WriteLine(log);
-                    PrintLog(log);
-                    return;
-                }
-                m_waitForServerInitialized.Set();   // LoadFarm is ok
-
-                if (!m_waitForServerInitialized.WaitOne(TimeSpan.FromSeconds(60)))
-                {
-                    log = String.Format("{0} : {1}", methodName, "Server connection established but server did not initialize within 60 seconds");
-                    Trace.WriteLine(log);
-                    PrintLog(log);
-                    DestroyFarm();
-                    return;
-                }
-
-                m_farm.SetEnabled(true);
-                log = String.Format("{0} : LoadFarm successed", methodName);
-                Trace.WriteLine(log);
-                PrintLog(log);
-                m_bConnectedToServer = true;
-            }
-            catch (Exception ex)
-            {
-                log = String.Format("{0} : {1}", methodName, "There was an error connecting to the farm: " + ex.ToString());
-                Trace.WriteLine(log);
-                PrintLog(log);
-                DestroyFarm();
-            }
-            finally
-            {
-                PrintLog(methodName + " end");
-            }
-        }
-
-        private void DestroyFarm()
-        {
-            string methodName = MethodBase.GetCurrentMethod().Name;
-            string log = string.Empty;
-
-            PrintLog(methodName + " start");
-
-            if (null != m_farm)
-            {
-                CDeviceManager deviceManager = m_farm.DeviceManager;
-                if (m_bDeviceModelEventHandlerAdded)
-                {
-                    deviceManager.DataLoadedEvent -= new EventHandler<EventArgs>(DeviceManager_DataLoadedEvent);
-                    m_bDeviceModelEventHandlerAdded = false;
-                }
-                if (m_bListenerEventHandlerAdded)
-                {
-                    m_alarmMonitor.AlarmReceived -= new EventHandler<AlarmMessageEventArgs>(HandleAlarmMessageReceived);
-                    m_bListenerEventHandlerAdded = false;
-                }
-                m_alarmMonitor = null;
-
-                m_farm.SetEnabled(false);
-                Thread.Sleep(1000);
-                m_farm.Dispose();
-                m_farm = null;
-                log = String.Format("{0} : DisposeFarm successed", methodName);
-                Trace.WriteLine(log);
-                PrintLog(log);
-
-                m_bConnectedToServer = false;
-                m_bStartedListener = false;
-            }
-            m_waitForServerInitialized.Reset();
 
             PrintLog(methodName + " end");
         }
 
-        private string LoadFarm()
-        {
-            try
-            {
-                CNetworkAddress address = new CNetworkAddress(m_serverIp);
-                m_farm = new SdkFarm(address, m_serverUsername, m_serverPassword);
-                m_farm.DeviceModelRefreshTrigger = Seer.FarmLib.Client.CFarm.DeviceAutoRefreshTrigger.AnyChange;
-
-                return m_farm.Connect();
-            }
-            catch (Exception ex)
-            {
-                return "Failed to connect to farm: " + ex.Message;
-            }
-        }
-
-        private bool AcquireAvailableDevices()
+        private void StopAVMSListener()
         {
             string methodName = MethodBase.GetCurrentMethod().Name;
-            string sStatus = string.Empty;
+
+            PrintLog(methodName + " start");
+
+            DeleteAVMSListenerEventHandler(ref m_bAVMSListenerEventHandlerAdded);
+            m_alarmMonitor = null;
+            m_eventMonitor = null;
+            m_bStartedListener = false;
+
+            PrintLog(methodName + " end");
+        }
+
+        private bool AcquireAvailableServers()
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
 
             PopulateServerList();
             if (!m_bAcquiredServerList)
@@ -281,6 +369,14 @@ namespace TransactionServer.Jobs.Job1
                 PrintLog(String.Format("{0} : fail to acquire servers", methodName));
                 return false;
             }
+            return true;
+        }
+
+        private bool AcquireAvailableDevices()
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+            string sStatus = string.Empty;
+
             if ((sStatus = RefreshDeviceManager()) != "")
             {
                 PrintLog(String.Format("{0} : fail to acquire devices [{1}]", methodName, sStatus));
@@ -289,63 +385,22 @@ namespace TransactionServer.Jobs.Job1
             return true;
         }
 
-        private string[] AttemptConnection()
-        {
-            string notes = "Please make sure the service \"AI Infoservice\" is running on the server and that it is not firewalled. If authenticating against ActiveDirectory you may need to specify <domain>\\<username> (eg microsoft\\bgates).";
-
-            try
-            {
-                IPEndPoint[] endPoints = null;
-                endPoints = Utils.ToEndPoints(m_serverIp);
-                using (ServerConnectionManager scm = ServerConnectionManager.CreateManager(endPoints, Guid.Empty, new EstablishConnectionOptions(0, TimeSpan.FromSeconds(0))))
-                {
-                    Seer.BaseLibCS.Proxy.Registration.Registration registrationProxy = scm.GetWebServiceProxy<Seer.BaseLibCS.Proxy.Registration.Registration>();    // verify the credentials
-                    string[] servers = registrationProxy.GetAddressesOfServers(m_serverUsername, m_serverPassword);
-                    return servers;
-                }
-            }
-            catch (UnauthorizedAccessException)
-            {
-                throw new Exception("Not Authorized. Check user name and password\". " + notes);
-            }
-            catch (Exception ex)
-            {
-                string message = string.Empty;
-                if (0 <= ex.ToString().IndexOf("WebException"))
-                {
-                    AILog.Log(LogLevels.LogError, ex.ToString());
-                    message = string.Format("{0} [{1}]. {2}",
-                        "Server is not online or not reachable",
-                        m_serverIp,
-                        notes);
-                }
-                else
-                {
-                    AILog.Log(LogLevels.LogError, ex.ToString());
-                    message = string.Format("{0} {1}. {2}",
-                        "Error: Could not connect to",
-                        m_serverIp,
-                        notes);
-                }
-                throw new Exception(message);
-            }
-        }
-
         private void PopulateServerList()
         {
             string methodName = MethodBase.GetCurrentMethod().Name;
 
             m_bAcquiredServerList = false;
 
-            if (null == m_farm)
+            if (null == m_avms)
             {
+                PrintLog(String.Format("{0} : {1}", methodName, "Fail to connect to AVMS!"));
                 return;
             }
 
             try
             {
-                string[] servers = AttemptConnection();
                 m_serverList.Clear();
+                string[] servers = m_avms.ServerList;
                 uint id = 0;
                 foreach (string server in servers)
                 {
@@ -368,13 +423,15 @@ namespace TransactionServer.Jobs.Job1
 
             m_bAcquiredCameraList = false;
 
-            if (null == m_farm)
+            if (null == m_deviceManager)
             {
+                PrintLog(String.Format("{0} : {1}", methodName, "Fail to load device manager!"));
                 return;
             }
 
             m_cameraList.Clear();
-            foreach (CCamera cam in m_farm.DeviceManager.GetAllCameras())
+            List<CCamera> cameras = m_deviceManager.GetAllCameras();
+            foreach (CCamera cam in cameras)
             {
                 uint camId = cam.CameraId;
                 m_cameraList.Add(camId, cam);
@@ -388,40 +445,140 @@ namespace TransactionServer.Jobs.Job1
         {
             try
             {
-                if (null == m_farm.DeviceManager)
+                if (null == m_deviceManager)
                 {
-                    return "Failed to access Device Manager. Value null";
+                    return "Failed to access Device Manager ： Value null";
                 }
 
-                CDeviceManager deviceManager = m_farm.DeviceManager;
-                if (!m_bDeviceModelEventHandlerAdded)
-                {
-                    deviceManager.DataLoadedEvent += new EventHandler<EventArgs>(DeviceManager_DataLoadedEvent);
-                    m_bDeviceModelEventHandlerAdded = true;
-                }
-                deviceManager.Refresh();
+                AddDeviceModelEventHandler(m_deviceManager, ref m_bDeviceModelEventHandlerAdded);
+                m_deviceManager.Refresh();
             }
             catch (Exception ex)
             {
-                return "Failed to refresh device manager: " + ex.ToString();
+                return "Failed to refresh device manager : " + ex.ToString();
             }
 
             return string.Empty;
         }
 
+        private void AddDeviceModelEventHandler(CDeviceManager deviceManager, ref bool bHandleAdded)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            if ((null != deviceManager) && (!bHandleAdded))
+            {
+                deviceManager.DataLoadedEvent += new EventHandler<EventArgs>(DeviceManager_DataLoadedEvent);
+                bHandleAdded = true;
+                PrintLog(String.Format("{0} : success to add device handler", methodName));
+            }
+        }
+        private void DeleteDeviceModelEventHandler(CDeviceManager deviceManager, ref bool bHandleAdded)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            if ((null != deviceManager) && bHandleAdded)
+            {
+                deviceManager.DataLoadedEvent -= new EventHandler<EventArgs>(DeviceManager_DataLoadedEvent);
+                bHandleAdded = false;
+                PrintLog(String.Format("{0} : success to remove device handler", methodName));
+            }
+        }
+
+        private void AddAVMSListenerEventHandler(ref bool bHandleAdded)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            if ((null != m_alarmMonitor)
+                && (null != m_eventMonitor)
+                && (!bHandleAdded))
+            {
+                m_alarmMonitor.AlarmReceived += new EventHandler<AlarmMessageEventArgs>(HandleAlarmMessageReceived);
+                m_eventMonitor.EventReceived += new EventHandler<EventMessageEventArgs>(HandleEventMessageReceived);
+                bHandleAdded = true;
+                PrintLog(String.Format("{0} : success to add event handler", methodName));
+            }
+        }
+        private void DeleteAVMSListenerEventHandler(ref bool bHandleAdded)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            if ((null != m_alarmMonitor)
+                && (null != m_eventMonitor)
+                && (bHandleAdded))
+            {
+                m_alarmMonitor.AlarmReceived -= new EventHandler<AlarmMessageEventArgs>(HandleAlarmMessageReceived);
+                m_eventMonitor.EventReceived -= new EventHandler<EventMessageEventArgs>(HandleEventMessageReceived);
+                bHandleAdded = false;
+                PrintLog(String.Format("{0} : success to remove event handler", methodName));
+            }
+        }
+
         private void DeviceManager_DataLoadedEvent(object sender, EventArgs e)
         {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+            string log = string.Empty;
+
             try
             {
                 PopulateCameraList();
             }
             catch (Exception ex)
             {
-                // TBD
+                PrintLog(String.Format("{0} : {1}", methodName, "Failed to load devices : " + ex.Message));
             }
         }
 
         private void HandleAlarmMessageReceived(object sender, AlarmMessageEventArgs e)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+            string log = string.Empty;
+
+            // parse
+
+            CameraMessageStruct cameraMessageStruct = e.Message;
+            uint alarm_id = cameraMessageStruct.m_iAlarmDbId;
+            uint camera_id = cameraMessageStruct.m_iCameraId;
+            uint event_id = cameraMessageStruct.m_iEvent;
+            int policy_id = cameraMessageStruct.m_iPolicyId;
+            uint alarm_time = cameraMessageStruct.m_utcTime;    // utc time
+
+            log = String.Format("{0} : receive an alarm message [alarm_id={1}, alarm_time={2}, camera_id={3}, alarm_type_id={4}, policy_type_id={5}]",
+                                methodName, alarm_id, alarm_time, camera_id, event_id, policy_id);
+            Trace.WriteLine(log);
+            PrintLog(log);
+
+            // process
+
+            // alarm time (optional)
+            DateTime alarm_datetime = new DateTime();
+            AdjustTime(ref cameraMessageStruct, out alarm_datetime, true);
+            // alarm type (optional)
+            string alarm_type = ToAlarmType((int)event_id);
+            // policy type (critical)
+            string policy_type = ToPolicyType((int)policy_id);
+
+            log = String.Format("{0} : process elements [alarm_id={1}, alarm_datetime={2}, camera_id={3}, alarm_type={4}, policy_type={5}]",
+                                methodName, alarm_id, alarm_datetime.ToString(), camera_id, alarm_type, policy_type);
+            Trace.WriteLine(log);
+            PrintLog(log);
+
+            // filter
+
+            FilterEvents();
+            if ((null == m_mapActionEvents) || (0 == m_mapActionEvents.Count))
+            {
+                return;
+            }
+
+            // executer
+
+            // extract commands from mapActionEvents
+            ExtractCommand();
+            // send commands refer to index order
+            SendCommand();
+        }
+
+        private void HandleEventMessageReceived(object sender, EventMessageEventArgs e)
         {
             string methodName = MethodBase.GetCurrentMethod().Name;
             string log = string.Empty;
@@ -606,7 +763,7 @@ namespace TransactionServer.Jobs.Job1
                 sStatus = MappingActionEvents(out policy_name, out m_mapActionEvents);  // according to event ids
             }
 
-            log = String.Format("{0} : MappingActionEvents status [{1}] with policy name is {2} and event num is {3}", methodName, sStatus, policy_name, m_mapActionEvents.Count);
+            log = String.Format("{0} : MappingActionEvents status [{1}] with policy name is {2} and event num is {3}", methodName, sStatus, policy_name, (m_mapActionEvents == null) ? 0 : m_mapActionEvents.Count);
             Trace.WriteLine(log);
             PrintLog(log);
         }

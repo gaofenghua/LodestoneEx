@@ -155,11 +155,12 @@
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
     <Compile Include="CgiFactory.cs" />
+    <Compile Include="EventMonitor.cs" />
     <Compile Include="JobEventNotification.cs" />
-    <Compile Include="Jobs\Job1\Config.cs" />
-    <Compile Include="Jobs\Job1\Job.cs" />
-    <Compile Include="Jobs\Job2\Config.cs" />
-    <Compile Include="Jobs\Job2\Job.cs" />
+    <Compile Include="Jobs\AVMS\Config.cs" />
+    <Compile Include="Jobs\AVMS\Job.cs" />
+    <Compile Include="Jobs\Bosch_IP7400\Config.cs" />
+    <Compile Include="Jobs\Bosch_IP7400\Job.cs" />
     <Compile Include="Jobs\Peake_Access\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access_xmlConfig.cs" />

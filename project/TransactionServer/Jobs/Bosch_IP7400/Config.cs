@@ -4,7 +4,7 @@ using System.Collections.Specialized;
 
 using System.Reflection;
 
-namespace TransactionServer.Jobs.Job1
+namespace TransactionServer.Jobs.Bosch.IP7400
 {
     public class Config : Base.ServiceConfig
     {
@@ -51,9 +51,7 @@ namespace TransactionServer.Jobs.Job1
 
         public Config()
         {
-            string namespaceName = MethodBase.GetCurrentMethod().DeclaringType.Namespace;
-            string sectionName = namespaceName.Split('.')[namespaceName.Split('.').Length - 1]; // Job1
-            NameValueCollection nvc = Base.ServiceTools.GetSection(sectionName);
+            NameValueCollection nvc = Base.ServiceTools.GetSection("Bosch.IP7400");
 
             foreach (string s in nvc.Keys)
             {

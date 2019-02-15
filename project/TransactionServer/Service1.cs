@@ -38,9 +38,9 @@ namespace TransactionServer
 
         protected override void OnStart(string[] args)
         {
-            // debug
-            Thread.Sleep(1000 * 60);
-            //
+            //// debug
+            //Thread.Sleep(1000 * 60);
+            ////
             this.runJobs();
         }
 

@@ -155,6 +155,7 @@
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
     <Compile Include="CgiFactory.cs" />
+    <Compile Include="JobEventNotification.cs" />
     <Compile Include="Jobs\Job1\Config.cs" />
     <Compile Include="Jobs\Job1\Job.cs" />
     <Compile Include="Jobs\Job2\Config.cs" />

@@ -30,14 +30,18 @@ namespace TransactionServer.Jobs.Peake_Access
         private const string JOB_LOG_FILE = "TransactionServer_Peake_Access.log";
         public static ReaderWriterLockSlim LogWriteLock = new ReaderWriterLockSlim();
 
-        //public PA_Socket client;
+        public event Action<object, JobEventArgs> OnAlarm;
+
         public PA_Socket[] sockets;
         public PA_xmlConfig config;
 
         public static int Door_Number = 8;
 
         public static int socket_count = 0;
-     
+
+        private int Maximum_Controller_Number = 30;
+        System.Threading.Timer heartbeat_timer = null;
+        int Time_Interval = 60000*5;
         protected override void Init()
         {
             // throw new NotImplementedException();
@@ -112,6 +116,13 @@ namespace TransactionServer.Jobs.Peake_Access
 
 
             int n_controller = config.Controllers.Count;
+
+            if(n_controller > Maximum_Controller_Number)
+            {
+                Peake_Access.PrintLog(0, String.Format("error: The number of Controllers [{0}] exceed the capacity [{1}]. Exit Peake_Access process.",n_controller,Maximum_Controller_Number));
+                return;
+            }
+
             sockets = new PA_Socket[n_controller];
 
             for(int i=0;i<n_controller;i++)
@@ -119,6 +130,8 @@ namespace TransactionServer.Jobs.Peake_Access
                 PA_Controller con = config.Controllers[i];
                 sockets[i] = new PA_Socket(con);
                 sockets[i].parent = this;
+                sockets[i].OnAlarm += Peake_Access_OnAlarm;
+
                 Thread.Sleep(200);
                 //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
                 //sockets[i].Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
@@ -127,7 +140,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 //sockets[i].Print_Rules();
             }
 
- 
+
 
             //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
             //byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
@@ -137,10 +150,50 @@ namespace TransactionServer.Jobs.Peake_Access
             //// client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
             ////client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
 
-     
+            heartbeat_timer = new Timer(HeartBeat, null, Time_Interval, Timeout.Infinite);
 
         }
 
+        private void Peake_Access_OnAlarm(object arg1, JobEventArgs arg2)
+        {
+            OnAlarm(arg1, arg2);
+        }
+
+        public void HeartBeat(object obj)
+        {
+            int n_conn = sockets.Count();
+
+            int n_Normal = 0;
+            int n_Closed = 0;
+            int n_Connecting = 0;
+
+            string s_Normal = "id=";
+            string s_Closed = "id=";
+            string s_Connecting = "id=";
+
+            for(int i=0;i<n_conn;i++)
+            {
+                if(sockets[i].status == Socket_Status.Normal)
+                {
+                    n_Normal += 1;
+                    s_Normal = s_Normal + " " + sockets[i].id.ToString();
+                }
+                else if(sockets[i].status == Socket_Status.Closed)
+                {
+                    n_Closed += 1;
+                    s_Closed = s_Closed + " " + sockets[i].id.ToString();
+                }
+                else if (sockets[i].status == Socket_Status.Connecting)
+                {
+                    n_Connecting += 1;
+                    s_Connecting = s_Connecting + " " + sockets[i].id.ToString();
+                }
+            }
+
+            Peake_Access.PrintLog(0, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
+
+            heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
+        }
         public static void PrintLog(int index, string text)
         {
             Trace.WriteLine(text);
@@ -164,9 +217,11 @@ namespace TransactionServer.Jobs.Peake_Access
 
     }
 
-    enum Socket_Status { Init, Connecting, Normal, Connect_Failed };
+    enum Socket_Status { Init, Connecting, Normal, Connect_Failed, Closed };
     class PA_Socket
     {
+        public event Action<object, JobEventArgs> OnAlarm;
+
         System.Threading.Timer heartbeat_timer = null;
         int Time_Interval = 1000;
         
@@ -420,13 +475,9 @@ namespace TransactionServer.Jobs.Peake_Access
             if (Reconnect_Times > Max_Reconnect_times)
             {
                 TimeSpan timespan = DateTime.Now - First_Reconnect_time;
-                if (timespan < Min_TimeSpan)
+                if (timespan < Min_TimeSpan || Reconnect_Times > Max_Reconnect_times * 3)
                 {
                     return true;
-                }
-                else
-                {
-                    // To be continue...
                 }
             }
             return false;
@@ -443,6 +494,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 Peake_Access.PrintLog(0, String.Format("error: Socket reconnect too frequently, Force close. id={0}. {1} - {2} reconnect {3} times", id, First_Reconnect_time, DateTime.Now, Reconnect_Times));
          
                 Close();
+                status = Socket_Status.Closed;
                 return;
             }
 
@@ -563,7 +615,6 @@ namespace TransactionServer.Jobs.Peake_Access
         }
         public void TriggerAlarm(int door_num, Peake_Event e)
         {
-            string log;
             int PA_Event = (int)e;
 
             int policy_id = rules[door_num, PA_Event].Policy_ID;
@@ -577,6 +628,12 @@ namespace TransactionServer.Jobs.Peake_Access
                     Peake_Access.PrintLog(0, String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message));
                 }
                 Peake_Access.PrintLog(0, String.Format("报警：{0}, 控制器={1}, 门号={2}, CameraID={3}, PolicyID={4}.", Peake_Access.Event_Name[PA_Event], id, door_num, camera_id, policy_id));
+
+                if(OnAlarm != null)
+                {
+                    JobEventArgs args = new JobEventArgs(this,"");
+                    OnAlarm(this,args);
+                }
             }
         }
     }

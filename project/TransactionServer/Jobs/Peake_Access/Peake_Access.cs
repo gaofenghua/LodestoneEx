@@ -93,26 +93,26 @@ namespace TransactionServer.Jobs.Peake_Access
                 Peake_Access.PrintLog(0, String.Format("{0}", config.message));
             }
 
-            for (int i = 0; i < 5; i++)
-            {
-                if (Global.Avms.IsConnected == false)
-                {
-                    Peake_Access.PrintLog(0, String.Format("AVMS server is not connected. Wait 3 seconds and will try again"));
-                    System.Threading.Thread.Sleep(3000);
-                }
-                else
-                {
-                    break;
-                }
-            }
+            //for (int i = 0; i < 5; i++)
+            //{
+            //    if (Global.Avms.IsConnected == false)
+            //    {
+            //        Peake_Access.PrintLog(0, String.Format("AVMS server is not connected. Wait 3 seconds and will try again"));
+            //        System.Threading.Thread.Sleep(3000);
+            //    }
+            //    else
+            //    {
+            //        break;
+            //    }
+            //}
 
-            if (Global.Avms.IsConnected == false)
-            {
-                Peake_Access.PrintLog(0, String.Format("error: AVMS server is not connected. Exit Peake_Access process."));
-                return;
-            }
+            //if (Global.Avms.IsConnected == false)
+            //{
+            //    Peake_Access.PrintLog(0, String.Format("error: AVMS server is not connected. Exit Peake_Access process."));
+            //    return;
+            //}
 
-            Peake_Access.PrintLog(0, String.Format("AVMS server connected. Straring Peake_Access process."));
+            //Peake_Access.PrintLog(0, String.Format("AVMS server connected. Straring Peake_Access process."));
 
 
             int n_controller = config.Controllers.Count;
@@ -622,11 +622,11 @@ namespace TransactionServer.Jobs.Peake_Access
 
             if (policy_id != -1 && camera_id != -1)
             {
-                bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
-                if (ret == false)
-                {
-                    Peake_Access.PrintLog(0, String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message));
-                }
+                //bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
+                //if (ret == false)
+                //{
+                //    Peake_Access.PrintLog(0, String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message));
+                //}
                 Peake_Access.PrintLog(0, String.Format("报警：{0}, 控制器={1}, 门号={2}, CameraID={3}, PolicyID={4}.", Peake_Access.Event_Name[PA_Event], id, door_num, camera_id, policy_id));
 
                 if(OnAlarm != null)

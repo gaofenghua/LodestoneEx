@@ -38,9 +38,9 @@ namespace TransactionServer
 
         protected override void OnStart(string[] args)
         {
-            //// debug
-            //Thread.Sleep(1000 * 60);
-            ////
+            // debug
+            Thread.Sleep(1000 * 30);
+            //
             this.runJobs();
         }
 
@@ -58,7 +58,7 @@ namespace TransactionServer
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + m_logFile, text, true);
         }
 
-        private void runJobs()
+        public void runJobs()
         {
             string prefix = m_className + " - " + MethodBase.GetCurrentMethod().Name;
 

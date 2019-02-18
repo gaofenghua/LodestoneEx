@@ -51,6 +51,7 @@ namespace TransactionServer.Jobs.AVMS
 
         // external adaptors
         private Bosch.IP7400.Job bosch_ip7400_adaptor = null;
+        private Peake_Access.Peake_Access peake_access_adaptor = null;
         
 
         // flag
@@ -137,7 +138,7 @@ namespace TransactionServer.Jobs.AVMS
                 case "Peake":
                     if (plugin_names.Contains(name))
                     {
-                        //
+                        peake_access_adaptor = (Peake_Access.Peake_Access)job;
                     }
                     break;
                 default:
@@ -179,6 +180,10 @@ namespace TransactionServer.Jobs.AVMS
             {
                 bosch_ip7400_adaptor.JobEventSend += new Bosch.IP7400.Job.JobEventHandler(this.External_JobEventSend);
                 m_bExternalJobEventSend = true;
+            }
+            if (null != peake_access_adaptor)
+            {
+                peake_access_adaptor.OnAlarm += External_JobEventSend;
             }
         }
 
@@ -1310,5 +1315,11 @@ namespace TransactionServer.Jobs.AVMS
         }
 
         #endregion
+
+        public void Test()
+        {
+            Init();
+            ExecuteLogic();
+        }
     }
 }

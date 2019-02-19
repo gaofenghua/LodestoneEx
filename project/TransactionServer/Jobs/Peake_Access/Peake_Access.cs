@@ -348,6 +348,9 @@ namespace TransactionServer.Jobs.Peake_Access
                         case 0x1a: //按钮开门，门磁报警数据上传
                             ParseData_0x1A(data_begin, data_len, obj);
                             break;
+                        case 0x1c: //防撬/火警报警数据上传
+                            ParseData_0x1C(data_begin, data_len, obj);
+                            break;
                         case 0xd0:  //启用主动上传模式（0xD0）
                             Peake_Access.PrintLog(0, String.Format("Peake_Access received package: 启用主动上传模式  [{0}]", BitConverter.ToString(obj,i,package_len)));
                             break;
@@ -580,6 +583,22 @@ namespace TransactionServer.Jobs.Peake_Access
             }
         }
 
+        public void ParseData_0x1C(int n_Begin, int n_Length, byte[] data)
+        {
+            byte status = data[n_Begin];
+
+            byte fire_alarm_mask = 0x04;
+
+            if(0!= (status & fire_alarm_mask))
+            {
+                TriggerAlarm(0, Peake_Event.Controller_Fire);
+            }
+            else
+            {
+                TriggerAlarm(0, Peake_Event.Controller_Damage);
+            }
+
+        }
         public void ParseData_0x1E(int n_Begin, int n_Length, byte[] data)
         {
             int data_num = data[n_Begin];
@@ -631,7 +650,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
                 if(OnAlarm != null)
                 {
-                    JobEventArgs args = new JobEventArgs(this,"");
+                    JobEventArgs args = new JobEventArgs(this, "");
                     OnAlarm(this,args);
                 }
             }

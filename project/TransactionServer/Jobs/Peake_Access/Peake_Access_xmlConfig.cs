@@ -24,32 +24,214 @@ namespace TC4I
         public int Port;
         public AVMS_Policy_Rule[,] Rules;
     }
-    
 
+    struct Event_Map
+    {
+        public string Event_Name;
+        public Peake_Event[] Events;
+    }
     class PA_xmlConfig
     {
         public List<PA_Controller> Controllers;
-        //public AVMS_Policy_Rule[] rules;
         public bool status;
         public string message;
+
+        public Event_Map[] event_map;
         public PA_xmlConfig()
         {
-            //// Initial array
-            //rules = new AVMS_Policy_Rule[(int)Peake_Event.End + 1];
-            //for (int i = 0; i < (int)Peake_Event.End + 1; i++)
-            //{
-            //    rules[i].Policy_ID = -1;
-            //}
-            //rules[(int)Peake_Event.Invalid].Event_Name = "无效刷卡";
-            //rules[(int)Peake_Event.Threat].Event_Name = "胁迫密码开门";
-            //// Initial end
-
             Controllers = new List<PA_Controller>();
 
-            status = false;
+            status = true;
             message = "";
         }
+    
+        public void Load_Event_Map()
+        {
+            string file = System.Windows.Forms.Application.StartupPath.ToString() + @"\" + "transaction.conf";
+            if (File.Exists(file) == false)
+            {
+                message = String.Format("{0} does not exist.", file);
+                status = false;
+                return;
+            }
 
+            XDocument xd;
+            try
+            {
+                xd = XDocument.Load(file);
+            }
+            catch(Exception e)
+            {
+                message = e.Message;
+                status = false;
+                return;
+            }
+            
+            var query = from s in xd.Descendants()
+                        where s.Name.LocalName == "event" && s.Parent.Name.LocalName == "event_map" && s.Parent.Attribute("owner") != null && s.Parent.Attribute("owner").Value == "Peake"
+                        select s;
+
+            int nQuery = query.Count();
+            event_map = new Event_Map[nQuery];
+
+            int i = 0;
+            foreach (XElement item in query)
+            {
+                event_map[i].Event_Name = item.Value;
+
+                string pa_eventsName="";
+                if(null != item.Attribute("desc"))
+                {
+                    pa_eventsName = item.Attribute("desc").Value;
+                }
+                string[] words = pa_eventsName.Split(',');
+                int nWords = words.Count();
+                event_map[i].Events = new Peake_Event[nWords];
+                int j = 0;
+                bool bFound = false;
+                foreach (var word in words)
+                {
+                    bFound = false; 
+                    for(int k=0;k<(int)Peake_Event.End;k++)
+                    {
+                        if(Peake_Access.Event_Name[k] == word)
+                        {
+                            event_map[i].Events[j] = (Peake_Event)k;
+                            bFound = true;
+                            break;
+                        }
+                    }
+
+                    if(false == bFound)
+                    {
+                        event_map[i].Events[j] = Peake_Event.End;
+                        message = string.Format("warning: {0} Non supported event in Peake Access System",word);
+                    }
+                    j = j + 1;
+                }
+
+                i = i + 1;
+            }
+
+            Load_Policy_Map(xd);
+        }
+
+        public void Load_Policy_Map(XDocument xd)
+        {
+            var query = from s in xd.Descendants()
+                        where s.Name.LocalName == "policy" && s.Parent.Name.LocalName == "policy_map" && s.Parent.Attribute("owner") != null && s.Parent.Attribute("owner").Value == "Peake"
+                        select s;
+            foreach (XElement item in query)
+            {
+                int policyID = -1;
+                int cameraID = -1;
+                string ip = "";
+                int port = -1;
+                string eventName = "";
+                int doorNumber = 0;
+                try
+                {
+                    policyID = Int32.Parse(item.Value);
+                    cameraID = Int32.Parse(item.Attribute("Camera_ID").Value);
+                    ip = item.Attribute("devIp").Value;
+                    port = Int32.Parse(item.Attribute("devPort").Value);
+                    eventName = item.Attribute("event").Value;
+                    if (null != item.Attribute("door"))
+                    {
+                        doorNumber = Int32.Parse(item.Attribute("door").Value);
+                    }
+
+                    if(doorNumber<0 || doorNumber > 8)
+                    {
+                        throw new IndexOutOfRangeException("The door number is out of range");
+                    }
+                }
+                catch (Exception e) //NullReferenceException,FormatException
+                {
+                    if (message != "")
+                    {
+                        message += "\r\n";
+                    }
+                    message += string.Format("warning: Peake_Access Load Policy map issue, {0}, ip={1}, port={2}.", e.Message, ip, port);
+                    continue;
+                }
+
+                Add_Control_Rule(ip, port, policyID, cameraID, doorNumber, eventName);
+            }
+        }
+
+        public void Add_Control_Rule(string ip, int port,int policyID, int cameraID, int doorNumber, string eventName)
+        {
+            Peake_Event[] paEvents = Get_Events(eventName);
+            if (paEvents == null)
+            {
+                Peake_Access.PrintLog(0, String.Format("warning: configuration load issue, Event: {0} does not exist. ", eventName));
+                return;
+            }
+
+            int nController = Controllers.Count();
+
+            int found = -1;
+            for(int i=0;i<nController;i++)
+            {
+                if(Controllers[i].IP == ip)
+                {
+                    found = i;
+                    break;
+                }
+            }
+
+            if(-1 != found)
+            {
+                for(int i=0;i<paEvents.Count();i++)
+                {
+                    int eventIndex = (int)paEvents[i];
+                    Controllers[found].Rules[doorNumber, eventIndex].Policy_ID = policyID;
+                    Controllers[found].Rules[doorNumber, eventIndex].Camera_ID = cameraID;
+                }
+            }
+            else
+            {
+                // Initial array
+                AVMS_Policy_Rule[,] rules = new AVMS_Policy_Rule[Peake_Access.Door_Number + 1, (int)Peake_Event.End + 1];
+
+                for (int j = 0; j < Peake_Access.Door_Number + 1; j++)
+                {
+                    for (int i = 0; i < (int)Peake_Event.End + 1; i++)
+                    {
+                        rules[j, i].Policy_ID = -1;
+                        rules[j, i].Camera_ID = -1;
+                    }
+                }
+                // Initial end
+
+                PA_Controller controller = new PA_Controller();
+                controller.ID = nController + 1;
+                controller.IP = ip;
+                controller.Port = port;
+                controller.Rules = rules;
+                for (int i = 0; i < paEvents.Count(); i++)
+                {
+                    int eventIndex = (int)paEvents[i];
+                    controller.Rules[doorNumber, eventIndex].Policy_ID = policyID;
+                    controller.Rules[doorNumber, eventIndex].Camera_ID = cameraID;
+                }
+
+                Controllers.Add(controller);
+            }
+        }
+
+        public Peake_Event[] Get_Events(string eventName)
+        {
+            foreach(Event_Map paEvent in event_map)
+            {
+                if(paEvent.Event_Name == eventName)
+                {
+                    return paEvent.Events;
+                }
+            }
+            return null;
+        }
         public void Load_Systems()
         {
             string file = System.Windows.Forms.Application.StartupPath.ToString() + @"\" + "transaction.conf";

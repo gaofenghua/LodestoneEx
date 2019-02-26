@@ -82,7 +82,8 @@ namespace TransactionServer.Jobs.Peake_Access
             Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
 
             config = new PA_xmlConfig();
-            config.Load_Systems();
+            config.Load_Event_Map();
+            //config.Load_Systems();
             if (config.status == false)
             {
                 Peake_Access.PrintLog(0, String.Format("error: configuration load failed, {0} Exit Peake_Access process.", config.message));
@@ -156,7 +157,10 @@ namespace TransactionServer.Jobs.Peake_Access
 
         private void Peake_Access_OnAlarm(object arg1, JobEventArgs arg2)
         {
-            OnAlarm(arg1, arg2);
+            if(OnAlarm != null)
+            {
+                OnAlarm(arg1, arg2);
+            }
         }
 
         public void HeartBeat(object obj)

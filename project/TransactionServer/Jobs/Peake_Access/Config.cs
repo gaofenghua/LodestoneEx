@@ -14,6 +14,7 @@ namespace TransactionServer.Jobs.Peake_Access
         private string m_Description;
         private string m_Enabled;
         private string m_Assembly;
+        private string m_Parent;
 
         public override string Description
         {
@@ -30,29 +31,34 @@ namespace TransactionServer.Jobs.Peake_Access
             get { return this.m_Assembly; }
         }
 
-        // Others
+        public override string Parent
+        {
+            get { return this.m_Parent; }
+        }
 
         #endregion
 
-        #region Constructor
+        #region Method
 
-        public Config()
+        public override void Load(string section)
         {
-            NameValueCollection nvc = Base.ServiceTools.GetSection("Peake_Access");
+            NameValueCollection nvc = Base.ServiceTools.GetSection(section);
+            this.m_Description = section;
 
             foreach (string s in nvc.Keys)
             {
                 switch (s.ToLower())
                 {
-                    case "description":
-                        this.m_Description = nvc[s].ToString();
-                        break;
                     case "enabled":
                         this.m_Enabled = nvc[s].ToString();
                         break;
                     case "assembly":
                         this.m_Assembly = nvc[s].ToString();
                         break;
+                    case "parent":
+                        this.m_Parent = nvc[s].ToString();
+                        break;
+
                     default:
                         break;
                 }

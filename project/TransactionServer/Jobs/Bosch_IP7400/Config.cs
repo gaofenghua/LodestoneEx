@@ -13,9 +13,11 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         private string m_Description;
         private string m_Enabled;
         private string m_Assembly;
-        private string m_configFile;
-        private string m_enabledLog;
-        private string m_systemId;
+        private string m_Parent;
+        private string m_RcvIp;
+        private string m_RcvPort;
+        private string m_DevIp;
+        private string m_DevPort;
 
         public override string Description
         {
@@ -32,48 +34,78 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             get { return this.m_Assembly; }
         }
 
-        public string Configuration
+        public override string Parent
         {
-            get { return this.m_configFile; }
+            get { return this.m_Parent; }
         }
-        public string LogEnabled
+
+        public string ReceiveIp
         {
-            get { return this.m_enabledLog; }
+            get { return this.m_RcvIp; }
         }
-        public string SystemId
+        public string ReceivePort
         {
-            get { return this.m_systemId; }
+            get { return this.m_RcvPort; }
         }
+
+        public string DeviceIp
+        {
+            get { return this.m_DevIp; }
+        }
+        public string DevicePort
+        {
+            get { return this.m_DevPort; }
+        }
+
 
         #endregion
 
-        #region Constructor
 
-        public Config()
+        #region Methods
+
+        public override void Load(string section)
         {
-            NameValueCollection nvc = Base.ServiceTools.GetSection("Bosch.IP7400");
+            NameValueCollection nvc = Base.ServiceTools.GetSection(section);
+            this.m_Description = section;
 
             foreach (string s in nvc.Keys)
             {
                 switch (s.ToLower())
                 {
-                    case "description":
-                        this.m_Description = nvc[s].ToString();
-                        break;
                     case "enabled":
                         this.m_Enabled = nvc[s].ToString();
                         break;
                     case "assembly":
                         this.m_Assembly = nvc[s].ToString();
                         break;
-                    case "configuration":
-                        this.m_configFile = nvc[s].ToString();
+                    case "parent":
+                        this.m_Parent = nvc[s].ToString();
                         break;
-                    case "log_enabled":
-                        this.m_enabledLog = nvc[s].ToString();
+                    case "rcv_addr":
+                        string[] rcvAddr = nvc[s].ToString().Split(':');
+                        if (2 != rcvAddr.Length)
+                        {
+                            this.m_RcvIp = string.Empty;
+                            this.m_RcvPort = string.Empty;
+                        }
+                        else
+                        {
+                            this.m_RcvIp = rcvAddr[0];
+                            this.m_RcvPort = rcvAddr[1];
+                        }
                         break;
-                    case "system_id":
-                        this.m_systemId = nvc[s].ToString();
+                    case "dev_addr":
+                        string[] DevAddr = nvc[s].ToString().Split(':');
+                        if (2 != DevAddr.Length)
+                        {
+                            this.m_DevIp = string.Empty;
+                            this.m_DevPort = string.Empty;
+                        }
+                        else
+                        {
+                            this.m_DevIp = DevAddr[0];
+                            this.m_DevPort = DevAddr[1];
+                        }
                         break;
                     default:
                         break;
@@ -82,5 +114,6 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         }
 
         #endregion
+
     }
 }

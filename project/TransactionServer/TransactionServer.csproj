@@ -132,7 +132,7 @@
       <HintPath>..\..\input\library\dll\x64\Seer.SDK.NotificationMonitors.dll</HintPath>
     </Reference>
     <Reference Include="socket.framework">
-      <HintPath>..\..\..\socket.framework-master\socket.framework\bin\Debug\socket.framework.dll</HintPath>
+      <HintPath>..\..\input\library\dll\x64\socket.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -164,8 +164,6 @@
     <Compile Include="Jobs\Peake_Access\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access_xmlConfig.cs" />
-    <Compile Include="Jobs\SocketServer\Config.cs" />
-    <Compile Include="Jobs\SocketServer\SocketServer.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>
     </Compile>

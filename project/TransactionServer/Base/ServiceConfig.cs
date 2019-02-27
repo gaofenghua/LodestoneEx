@@ -21,5 +21,12 @@ namespace TransactionServer.Base
         {
             get;
         }
+
+        public abstract string Parent
+        {
+            get;
+        }
+
+        public abstract void Load(string section);
     }
 }

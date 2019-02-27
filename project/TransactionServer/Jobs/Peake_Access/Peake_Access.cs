@@ -77,6 +77,11 @@ namespace TransactionServer.Jobs.Peake_Access
             this.m_IsRunning = false;
         }
 
+        protected override void Callback_JobEventSend(object sender, JobEventArgs e)
+        {
+            //
+        }
+
         public void executeLogic()
         {
             Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
@@ -131,7 +136,8 @@ namespace TransactionServer.Jobs.Peake_Access
                 PA_Controller con = config.Controllers[i];
                 sockets[i] = new PA_Socket(con);
                 sockets[i].parent = this;
-                sockets[i].OnAlarm += Peake_Access_OnAlarm;
+                //sockets[i].OnAlarm += Peake_Access_OnAlarm;
+                sockets[i].OnAlarm += this.OnJobEventSend;
 
                 Thread.Sleep(200);
                 //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
@@ -654,8 +660,13 @@ namespace TransactionServer.Jobs.Peake_Access
 
                 if(OnAlarm != null)
                 {
-                    JobEventArgs args = new JobEventArgs(this, "");
-                    OnAlarm(this,args);
+                    //JobEventArgs args = new JobEventArgs(this, "");
+                    //OnAlarm(this,args);
+                    JobEventInfo info = new JobEventInfo(0);    // alarm time
+                    info.camera_id = camera_id;
+                    info.policy_id = policy_id;
+                    JobEventArgs args = new JobEventArgs(this, "", info);
+                    OnAlarm(this, args);
                 }
             }
         }

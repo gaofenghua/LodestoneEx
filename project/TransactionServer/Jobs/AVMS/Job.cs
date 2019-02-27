@@ -1,71 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-//
 using System.Reflection;
 using System.Diagnostics;
 using System.Threading;
-using System.Net;
 using System.Collections;
 using System.ComponentModel;
 using System.Xml;
 using System.Xml.Serialization;
 using System.Linq;
-using System.Windows.Forms;
-// customize
-using TransactionServer.Base;
-// AVMS SDK
-using Seer;
-using BaseIDL;
 using Seer.BaseLibCS;
-using Seer.BaseLibCS.Communication;
-using Seer.Configuration;
-using Seer.Connectivity;
 using Seer.Database;
-using Seer.Database.BaseLibCS;
-using Seer.DeviceModel;
 using Seer.DeviceModel.Client;
-using Seer.FarmLib.Client;
 using Seer.SDK;
 using Seer.SDK.NotificationMonitors;
-using Seer.Utilities;
-// 3rd
 using Newtonsoft.Json;
-// external adaptors
-using TransactionServer.Jobs;
+using TransactionServer.Base;
 
 
 namespace TransactionServer.Jobs.AVMS
 {
     public class Job : Base.ServiceJob
     {
-        private Utils m_utils = new Utils();
-        //private SdkFarm m_farm = null;
-        private AlarmMonitor m_alarmMonitor;
-        private EventMonitor m_eventMonitor;
-        private ManualResetEvent m_waitForServerInitialized = new ManualResetEvent(false);
-
-        private AVMSCom m_avms = null;
-        public delegate void MessageHandler(MessageEventArgs e);
-
-        // external adaptors
-        private Bosch.IP7400.Job bosch_ip7400_adaptor = null;
-        private Peake_Access.Peake_Access peake_access_adaptor = null;
-        
-
-        // flag
-        private bool m_bConnectedToAVMSServer = false;
-        private bool m_bStartedListener = false;
-        private bool m_bDeviceModelEventHandlerAdded = false;
-        private bool m_bAVMSListenerEventHandlerAdded = false;
-        private bool m_bAcquiredServerList = false;
-        private bool m_bAcquiredCameraList = false;
-        private bool m_bPrintLogAllowed = false;
-        private bool m_bDatabaseAccessAllowed = false;
-        private bool m_bAVMSMessageSend = false;
-        private bool m_bExternalJobEventSend = false;
-        // data
+        private string m_jobName = string.Empty;
         string m_serverIp = string.Empty;
         string m_serverUsername = string.Empty;
         string m_serverPassword = string.Empty;
@@ -76,13 +33,33 @@ namespace TransactionServer.Jobs.AVMS
         private Dictionary<int, ArrayList> m_mapActionEvents = null;
         private ArrayList[] m_listActionCommands = null;    // array includes [action_type] and [Command]
         private List<string> m_listEventIds = new List<string>();
+        private string m_workDirectory = string.Empty;
+        private bool m_bTraceLogEnabled = true;
+        private bool m_bPrintLogEnabled = false;
+        private bool m_bConnectedToAVMSServer = false;
+        private bool m_bStartedListener = false;
+        private bool m_bDeviceModelEventHandlerAdded = false;
+        private bool m_bAVMSListenerEventHandlerAdded = false;
+        private bool m_bAcquiredServerList = false;
+        private bool m_bAcquiredCameraList = false;
+        private bool m_bDatabaseAccessAllowed = false;
+        private bool m_bAVMSMessageSend = false;
+        private bool m_bExternalJobEventSend = false;
 
-        // default
-        private const string IP_ADDRESS = "127.0.0.1";  // 192.168.77.244
+        private Utils m_utils = new Utils();
+        private AVMSCom m_avms = null;
+        private AlarmMonitor m_alarmMonitor;
+        private EventMonitor m_eventMonitor;
+        private ManualResetEvent m_waitForServerInitialized = new ManualResetEvent(false);
+        public delegate void MessageHandler(MessageEventArgs e);
+
+        private const string OWNER = "AVMS";
+        private const string IP_ADDRESS = "127.0.0.1";
         private const string USERNAME = "admin";
         private const string PASSWORD = "admin";
-        private const string RULE_EVENT_CONFIG = "transaction.conf";
-        private const string JOB_LOG_FILE = "TransactionServer_Job1.log";
+        private const string CONFIG_FILE = "transaction.conf";
+        private const string JOB_LOG_FILE = "TransactionServer.log";
+
 
         private SdkFarm m_farm
         {
@@ -121,74 +98,40 @@ namespace TransactionServer.Jobs.AVMS
             CUSTOMIZED = 12,
         }
 
-
-        public void SetPlugin(string name, ServiceJob job)
+        private void PrintLog(string text)
         {
-            Config config = this.ConfigObject as Config;
-            ArrayList plugin_names = config.PluginNames;
-
-            switch (name)
+            if (m_bTraceLogEnabled)
             {
-                case "Bosch.IP7400":
-                    if (plugin_names.Contains(name))
-                    {
-                        bosch_ip7400_adaptor = (Bosch.IP7400.Job)job;
-                    }
-                    break;
-                case "Peake":
-                    if (plugin_names.Contains(name))
-                    {
-                        peake_access_adaptor = (Peake_Access.Peake_Access)job;
-                    }
-                    break;
-                default:
-                    break;
+                Trace.WriteLine(text);
+            }
+            if (m_bPrintLogEnabled)
+            {
+                ServiceTools.WriteLog(m_workDirectory + @"\" + JOB_LOG_FILE, text, true);
             }
         }
-
-        public void External_JobEventSend(object sender, JobEventArgs e)
-        {
-            if ((null == m_cameraList) || (0 == m_cameraList.Count))
-            {
-                return;
-            }
-
-            string msg = e.Message;
-            //Console.WriteLine(msg);
-            Trace.WriteLine(msg);
-
-
-            if (msg.Contains("ALARM_BURGLARY"))
-            {
-                CCamera cam = m_cameraList[9];
-                int alarmTime = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds);
-                bool isAdded = m_avms.AddAlarm(cam, alarmTime, 5, string.Empty, string.Empty);
-                Trace.WriteLine("Add alarm : " + isAdded);
-            }
-        }
-
 
         protected override void Init()
         {
-            m_serverIp = IP_ADDRESS;
-            m_serverUsername = USERNAME;
-            m_serverPassword = PASSWORD;    // Utils.EncodeString(PASSWORD)
-
-            m_bPrintLogAllowed = (ServiceTools.GetAppSetting("avms_log_enabled").ToLower() == "true") ? true : false;
-
-            if ((null != bosch_ip7400_adaptor) && (!m_bExternalJobEventSend))
+            m_bPrintLogEnabled = (ServiceTools.GetAppSetting("print_log_enabled").ToLower() == "true") ? true : false;
+            Config config = this.ConfigObject as Config;
+            m_jobName = config.Description;
+            m_serverIp = (config.Ip == string.Empty) ? IP_ADDRESS : config.Ip;
+            if ((string.Empty != config.AuthInfo) && (2 == config.AuthInfo.Split(':').Length))
             {
-                bosch_ip7400_adaptor.JobEventSend += new Bosch.IP7400.Job.JobEventHandler(this.External_JobEventSend);
-                m_bExternalJobEventSend = true;
+                m_serverUsername = config.AuthInfo.Split(':')[0];
+                m_serverPassword = config.AuthInfo.Split(':')[1];
             }
-            if (null != peake_access_adaptor)
+            else
             {
-                peake_access_adaptor.OnAlarm += External_JobEventSend;
+                m_serverUsername = USERNAME;
+                m_serverPassword = PASSWORD;
             }
+            m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
         }
 
         protected override void Cleanup()
         {
+            m_jobName = string.Empty;
             m_serverIp = string.Empty;
             m_serverUsername = string.Empty;
             m_serverPassword = string.Empty;
@@ -203,12 +146,6 @@ namespace TransactionServer.Jobs.AVMS
                 m_bAVMSMessageSend = false;
             }
             m_avms = null;
-            if ((null != bosch_ip7400_adaptor) && (m_bExternalJobEventSend))
-            {
-                bosch_ip7400_adaptor.JobEventSend -= new Bosch.IP7400.Job.JobEventHandler(this.External_JobEventSend);
-                m_bExternalJobEventSend = false;
-            }
-            bosch_ip7400_adaptor = null;
         }
 
         protected override void Start()
@@ -219,38 +156,68 @@ namespace TransactionServer.Jobs.AVMS
             {
                 this.m_IsRunning = true;
                 m_utils.CreateWorkerThread("ExecuteLogic", ExecuteLogic);
+
+                PrintLog(String.Format("{0} - {1} : successful", m_jobName, methodName));
             }
             catch (Exception error)
             {
                 this.m_IsRunning = false;
-                PrintLog(String.Format("{0} : failed with exception \"{1}\"", methodName, error.ToString()));
-                ServiceTools.WindowsServiceStop("TransactionServer");
+                String.Format("{0} - {1} : failed with exception \"{2}\"", m_jobName, methodName, error.ToString());
+                throw error;
             }
             finally
             {
-                PrintLog(String.Format("{0} : successful", methodName));
+                //
             }
         }
 
         protected override void Stop()
         {
             string methodName = MethodBase.GetCurrentMethod().Name;
+            PrintLog(String.Format("{0} - {1} : start", m_jobName, methodName));
 
-            PrintLog(methodName + " start");
-
-            if (null == m_avms)
+            if (null != m_avms)
             {
+                DeleteDeviceModelEventHandler(m_deviceManager, ref m_bDeviceModelEventHandlerAdded);
+                //StopAVMSListener();   // will recover
+                m_avms.Disconnect();
+            }
+
+            this.m_IsRunning = false;
+            PrintLog(String.Format("{0} - {1} : end", m_jobName, methodName));
+        }
+
+        protected override void Callback_JobEventSend(object sender, JobEventArgs e)
+        {
+            ServiceJob job = (ServiceJob)sender;
+            string message = e.Message;
+            JobEventInfo info = e.Info;
+
+            if (null == info)
+            {
+                PrintLog(String.Format("{0} has received from {1} - message = {2} => no alarm needs to be inserted", m_jobName, job.ConfigObject.Description, message));
+                return;
+            }
+            PrintLog(String.Format("{0} has received from {1} - message = {2} => event_time = {3}, camera_id = {4}, policy_id = {5}", m_jobName, job.ConfigObject.Description, message, info.event_time, info.camera_id, info.policy_id));
+
+            if ((null == m_cameraList) || (0 == m_cameraList.Count))
+            {
+                PrintLog(m_jobName + " : no camera exists");
+                return;
+            }
+            uint camera_id = 0;
+            if ((!uint.TryParse(info.camera_id.ToString(), out camera_id)) || (!m_cameraList.ContainsKey(camera_id)))
+            {
+                PrintLog(m_jobName + " : no valid camera is assigned to alarm");
                 return;
             }
 
-            DeleteDeviceModelEventHandler(m_deviceManager, ref m_bDeviceModelEventHandlerAdded);
-            StopAVMSListener();
-            m_avms.Disconnect();
-
-            this.m_IsRunning = false;
-
-            PrintLog(methodName + " end");
+            CCamera cam = m_cameraList[camera_id];
+            bool isAdded = m_avms.AddAlarm(cam, info.event_time, info.policy_id, string.Empty, string.Empty);
+            PrintLog(String.Format("{0} add alarm (camera = {1}, policy_id = {2}) : {3}", m_jobName, cam, info.policy_id, isAdded));
         }
+
+
 
         private void AVMSCom_MessageSend(object sender, MessageEventArgs e)
         {
@@ -284,7 +251,7 @@ namespace TransactionServer.Jobs.AVMS
                             return;
                         }
 
-                        StartAVMSListener();
+                        //StartAVMSListener();    // will recover
                     }
 
                     break;
@@ -317,15 +284,6 @@ namespace TransactionServer.Jobs.AVMS
                 m_bAVMSMessageSend = true;
             }
             m_avms.Connect();
-        }
-
-        private void PrintLog(string text)
-        {
-            if (!m_bPrintLogAllowed)
-            {
-                return;
-            }
-            ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
 
         private void StartAVMSListener()
@@ -875,7 +833,7 @@ namespace TransactionServer.Jobs.AVMS
             }
             else
             {
-                EventCollection config_list = DeserializeFromXml<EventCollection>(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + RULE_EVENT_CONFIG);
+                EventCollection config_list = DeserializeFromXml<EventCollection>(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + CONFIG_FILE);
                 if ((null == config_list) || (null == config_list.RuleList) || (0 == config_list.RuleList.Count()))
                 {
                     type = "#NO VALUE";
@@ -933,12 +891,12 @@ namespace TransactionServer.Jobs.AVMS
         //	<action>22</action>
         //	<schedule>8</schedule>
         //	<priority>5</priority>
-        //	<events>
+        //	<m_events>
         //		<type>SEQ</type>
         //		<period>30</period>
         //		<loc seq="0">23</loc>
         //		<loc seq="1">20</loc>
-        //  </events>
+        //  </m_events>
         //</policy>
         private string MappingActionEvents(string strPolicyXML, out string strPolicyName, out Dictionary<int, ArrayList> mapActionEvents)
         {
@@ -957,15 +915,15 @@ namespace TransactionServer.Jobs.AVMS
                 }
                 string action_id = actionNode.InnerText;
                 // event id list
-                XmlNode eventsNode = doc.SelectSingleNode("policy/events");
+                XmlNode eventsNode = doc.SelectSingleNode("policy/m_events");
                 if (null == eventsNode)
                 {
-                    return "Invalid XML format (not found events node)";
+                    return "Invalid XML format (not found m_events node)";
                 }
                 XmlNodeList itemNodeList = eventsNode.ChildNodes;
                 if (null == itemNodeList)
                 {
-                    return "Invalid XML format (no content included in events node)";
+                    return "Invalid XML format (no content included in m_events node)";
                 }
                 List<string> event_loc_id_list = new List<string>();
                 foreach (XmlNode itemNode in itemNodeList)
@@ -1003,7 +961,7 @@ namespace TransactionServer.Jobs.AVMS
                     }
                 }
 
-                // filter action events  (events configuration)
+                // filter action m_events  (m_events configuration)
                 if (0 == listEventIds.Count)
                 {
                     return "No event needs to be taken action!";
@@ -1038,7 +996,7 @@ namespace TransactionServer.Jobs.AVMS
                 strPolicyName = string.Empty;
                 mapActionEvents = null;
 
-                // filter action events  (events configuration)
+                // filter action m_events  (m_events configuration)
                 if (0 == m_listEventIds.Count)
                 {
                     return "No event needs to be taken action!";
@@ -1046,7 +1004,7 @@ namespace TransactionServer.Jobs.AVMS
 
                 mapActionEvents = new Dictionary<int, ArrayList>();
                 mapActionEvents.Clear();
-                EventCollection event_list = DeserializeFromXml<EventCollection>(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + RULE_EVENT_CONFIG);
+                EventCollection event_list = DeserializeFromXml<EventCollection>(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + CONFIG_FILE);
                 if ((null == event_list.RuleList) || (0 == event_list.RuleList.Count()))
                 {
                     return "No event is matched";
@@ -1190,14 +1148,13 @@ namespace TransactionServer.Jobs.AVMS
             }
         }
 
-        //[XmlRoot("Configuration")]
         [XmlType(TypeName = "configuration")]
         public class EventCollection
         {
             [XmlArray("rule_event_map")]
             public Rule[] RuleList { get; set; }
 
-            [XmlArray("events")]
+            [XmlArray("m_events")]
             public Event[] EventList { get; set; }
         }
 
@@ -1315,11 +1272,5 @@ namespace TransactionServer.Jobs.AVMS
         }
 
         #endregion
-
-        public void Test()
-        {
-            Init();
-            ExecuteLogic();
-        }
     }
 }

@@ -21,11 +21,11 @@ namespace TransactionServer
     {
         string m_namespaceName = string.Empty;
         string m_className = string.Empty;
-        string m_logFile = string.Empty;
         private Hashtable hashJobs;
+        private bool m_bTraceLogEnabled = true;
+        private bool m_bPrintLogEnabled = false;
 
-        // default
-        private const string SERVICE_LOG_FILE = "TransactionServer.log";
+        private const string LOG_FILE = "TransactionServer.log";
 
         public Service1()
         {
@@ -33,13 +33,25 @@ namespace TransactionServer
 
             m_namespaceName = MethodBase.GetCurrentMethod().DeclaringType.Namespace;
             m_className = MethodBase.GetCurrentMethod().DeclaringType.FullName;
-            m_logFile = m_namespaceName + ".log";   // SERVICE_LOG_FILE
+            m_bPrintLogEnabled = (ServiceTools.GetAppSetting("print_log_enabled").ToLower() == "true") ? true : false;
+        }
+
+        private void PrintLog(string text)
+        {
+            if (m_bTraceLogEnabled)
+            {
+                Trace.WriteLine(text);
+            }
+            if (m_bPrintLogEnabled)
+            {
+                ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + LOG_FILE, text, true);
+            }
         }
 
         protected override void OnStart(string[] args)
         {
             // debug
-            Thread.Sleep(1000 * 30);
+            Thread.Sleep(1000 * 60);
             //
             this.runJobs();
         }
@@ -49,22 +61,12 @@ namespace TransactionServer
             this.stopJobs();
         }
 
-        private void PrintLog(string text)
-        {
-            if ("true" != ServiceTools.GetAppSetting("service_log_enabled").ToLower())
-            {
-                return;
-            }
-            ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + m_logFile, text, true);
-        }
-
-        public void runJobs()
+        private void runJobs()
         {
             string prefix = m_className + " - " + MethodBase.GetCurrentMethod().Name;
 
             try
             {
-                // load job
                 if (this.hashJobs == null)
                 {
                     hashJobs = new Hashtable();
@@ -81,9 +83,23 @@ namespace TransactionServer
                                 continue;
                             }
                             string assemblyName = sectionType.Split(',')[1];
-                            string classFullName = assemblyName + ".Jobs." + sectionName + ".Config";
+                            string classFullName = string.Empty;
+                            if (2 == sectionName.Split('_').Length)
+                            {
+                                classFullName = assemblyName + ".Jobs." + sectionName.Split('_')[0] + ".Config";
+                            }
+                            else
+                            {
+                                classFullName = assemblyName + ".Jobs." + sectionName + ".Config";
+                            }
 
                             ServiceConfig config = Assembly.Load(assemblyName).CreateInstance(classFullName) as ServiceConfig;
+                            if (null == config)
+                            {
+                                PrintLog(String.Format("{0} : fail to load class ({1})", prefix, classFullName));
+                                continue;
+                            }
+                            config.Load(sectionName);
                             ServiceJob job = Assembly.Load(config.Assembly.Split(',')[1]).CreateInstance(config.Assembly.Split(',')[0]) as ServiceJob;
                             job.ConfigObject = config;
 
@@ -92,26 +108,18 @@ namespace TransactionServer
                     }
                 }
 
-
-                // additional config
-                if (hashJobs.ContainsKey("AVMS"))
-                {
-                    Jobs.AVMS.Job job = (Jobs.AVMS.Job)hashJobs["AVMS"];
-                    foreach (string name in hashJobs.Keys)
-                    {
-                        if (("AVMS" != name) && ("SystemInfo" != name))
-                        {
-                            job.SetPlugin(name, (ServiceJob)hashJobs[name]);
-                        }
-                    }
-                }
-
-
-                // run job
                 if (this.hashJobs.Keys.Count > 0)
                 {
                     foreach (ServiceJob job in hashJobs.Values)
                     {
+                        ServiceConfig config = job.ConfigObject;
+                        string parentName = config.Parent;
+                        if (hashJobs.ContainsKey(parentName))
+                        {
+                            ServiceJob parentJob = (ServiceJob)hashJobs[parentName];
+                            job.SetParentJob(parentJob);
+                        }
+
                         if (System.Threading.ThreadPool.QueueUserWorkItem(threadCallBack, job))
                         {
                             PrintLog(String.Format("{0} : success to run {1}", prefix, job.ToString()));
@@ -126,6 +134,7 @@ namespace TransactionServer
             catch (Exception error)
             {
                 PrintLog(String.Format("{0} : throw exception \"{1}\"", prefix, error.ToString()));
+                ServiceTools.WindowsServiceStop("TransactionServer");
             }
         }
 
@@ -146,8 +155,17 @@ namespace TransactionServer
         private void threadCallBack(Object state)
         {
             ServiceJob job = (ServiceJob)state;
-            job.InitJob();
-            job.StartJob();
+
+            try
+            {
+                job.InitJob();
+                job.StartJob();
+            }
+            catch (Exception e)
+            {
+                PrintLog(String.Format("Fail to run job[{0}] : {1}", job.ToString(), e.Message));
+                ServiceTools.WindowsServiceStop("TransactionServer");
+            }
         }
     }
 }

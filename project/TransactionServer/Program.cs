@@ -11,9 +11,6 @@ namespace TransactionServer
     {
         static void Main()
         {
-            Global.Avms = new AVMSCom("127.0.0.1", "admin", "admin");
-            Global.Avms.Connect();
-
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[] 
 			{ 

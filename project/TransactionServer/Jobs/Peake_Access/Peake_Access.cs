@@ -39,7 +39,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public static int socket_count = 0;
 
-        private int Maximum_Controller_Number = 30;
+        public static int Maximum_Controller_Number = 30;
         System.Threading.Timer heartbeat_timer = null;
         int Time_Interval = 60000*5;
         protected override void Init()

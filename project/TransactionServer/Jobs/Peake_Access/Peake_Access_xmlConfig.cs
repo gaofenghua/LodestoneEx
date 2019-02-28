@@ -114,6 +114,7 @@ namespace TC4I
             }
 
             Load_Policy_Map(xd);
+            Check_Configuration();
         }
 
         public void Load_Policy_Map(XDocument xd)
@@ -160,6 +161,15 @@ namespace TC4I
             }
         }
 
+        public void Check_Configuration()
+        {
+            if(Controllers.Count() > Peake_Access.Maximum_Controller_Number)
+            {
+                Peake_Access.PrintLog(0, String.Format("error: Maximum controller number exceeded. Maximum = {0}, Current controller = {1}. ", Peake_Access.Maximum_Controller_Number,Controllers.Count()));
+                status = false;
+            }
+            status = true;
+        }
         public void Add_Control_Rule(string ip, int port,int policyID, int cameraID, int doorNumber, string eventName)
         {
             Peake_Event[] paEvents = Get_Events(eventName);

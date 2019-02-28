@@ -573,20 +573,23 @@ namespace TransactionServer.Jobs.Peake_Access
 
             byte door_mask = 0x03;
             byte button_mask = 0x01;
-            byte magnetic_mask = 0x02; 
+            byte magnetic_mask = 0x02;
 
-            for(int door_num=1;door_num<5;door_num++)
+            int date_offset = 4;
+            DateTime eventTime = ParseEventTime(n_Begin, date_offset, data);
+
+            for (int door_num=1;door_num<5;door_num++)
             {
                 if( (door1234 & door_mask & button_mask) == button_mask )
                 {
                     //按钮开门
-                    TriggerAlarm(door_num, Peake_Event.OpenDoor_byButton);
+                    TriggerAlarm(door_num, Peake_Event.OpenDoor_byButton,eventTime);
                 }
 
                 if( (door1234 & door_mask & magnetic_mask) == magnetic_mask )
                 {
                     //门磁报警
-                    TriggerAlarm(door_num, Peake_Event.Illegal_Open);
+                    TriggerAlarm(door_num, Peake_Event.Illegal_Open,eventTime);
                 }
 
                 door1234 = (byte)(door1234 >> 2);
@@ -599,13 +602,16 @@ namespace TransactionServer.Jobs.Peake_Access
 
             byte fire_alarm_mask = 0x04;
 
-            if(0!= (status & fire_alarm_mask))
+            int date_offset = 4;
+            DateTime eventTime = ParseEventTime(n_Begin, date_offset, data);
+
+            if (0!= (status & fire_alarm_mask))
             {
-                TriggerAlarm(0, Peake_Event.Controller_Fire);
+                TriggerAlarm(0, Peake_Event.Controller_Fire,eventTime);
             }
             else
             {
-                TriggerAlarm(0, Peake_Event.Controller_Damage);
+                TriggerAlarm(0, Peake_Event.Controller_Damage,eventTime);
             }
 
         }
@@ -614,6 +620,9 @@ namespace TransactionServer.Jobs.Peake_Access
             int data_num = data[n_Begin];
             for (int n = 0; n < data_num; n++)
             {
+                int date_offset = 1 + n*12 + 6;
+                DateTime eventTime = ParseEventTime(n_Begin, date_offset,data);
+
                 string CardNumber = BitConverter.ToString(data, n_Begin + 1 + n * 12, 4);
                 byte b_Doornum = data[n_Begin + 5 + n * 12];
                 byte OpenDoor_Result = data[n_Begin + 6 + n * 12];
@@ -632,17 +641,29 @@ namespace TransactionServer.Jobs.Peake_Access
                 byte Mask_ValidCard = 0x80;
                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                 {
-                    TriggerAlarm(DoorNumber, Peake_Event.Invalid_Card);
+                    TriggerAlarm(DoorNumber, Peake_Event.Invalid_Card,eventTime);
                 }
 
                 if( (OpenDoor_Result >> 1 & 0x3F) == 0x01 )
                 {
-                    TriggerAlarm(DoorNumber, Peake_Event.Threated);
+                    TriggerAlarm(DoorNumber, Peake_Event.Threated,eventTime);
                 }
             }
-
         }
-        public void TriggerAlarm(int door_num, Peake_Event e)
+
+        private DateTime ParseEventTime(int n_Begin, int date_offset, byte[] data)
+        {
+            int year = DateTime.Now.Year;
+            int month = Convert.ToInt32(BitConverter.ToString(data, n_Begin + date_offset + 1, 1));
+            int day = Convert.ToInt32(BitConverter.ToString(data, n_Begin + date_offset + 2, 1));
+            int hour = Convert.ToInt32(BitConverter.ToString(data, n_Begin + date_offset + 3, 1));
+            int minute = Convert.ToInt32(BitConverter.ToString(data, n_Begin + date_offset + 4, 1));
+            int second = Convert.ToInt32(BitConverter.ToString(data, n_Begin + date_offset + 5, 1));
+            DateTime eventTime = new DateTime(year, month, day, hour, minute, second);
+
+            return eventTime;
+        }
+        public void TriggerAlarm(int door_num, Peake_Event e, DateTime event_time)
         {
             int PA_Event = (int)e;
 
@@ -662,11 +683,12 @@ namespace TransactionServer.Jobs.Peake_Access
                 {
                     //JobEventArgs args = new JobEventArgs(this, "");
                     //OnAlarm(this,args);
-                    JobEventInfo info = new JobEventInfo(0);    // alarm time
+                    int nEventTime = (int)(event_time - new DateTime(1970, 1, 1)).TotalSeconds;
+                    JobEventInfo info = new JobEventInfo(nEventTime);    // alarm time
                     info.camera_id = camera_id;
                     info.policy_id = policy_id;
                     JobEventArgs args = new JobEventArgs(this, "", info);
-                    OnAlarm(this, args);
+                    OnAlarm(parent, args);
                 }
             }
         }

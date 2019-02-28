@@ -51,7 +51,7 @@ namespace TransactionServer
         protected override void OnStart(string[] args)
         {
             // debug
-            Thread.Sleep(1000 * 60);
+            Thread.Sleep(1000 * 30);
             //
             this.runJobs();
         }
@@ -84,7 +84,7 @@ namespace TransactionServer
                             }
                             string assemblyName = sectionType.Split(',')[1];
                             string classFullName = string.Empty;
-                            if (2 == sectionName.Split('_').Length)
+                            if (2 == sectionName.Split('_').Length & false) //This conflict need to be fixed -- Indy
                             {
                                 classFullName = assemblyName + ".Jobs." + sectionName.Split('_')[0] + ".Config";
                             }

@@ -132,7 +132,7 @@ namespace TC4I
                 try
                 {
                     policyID = Int32.Parse(item.Value);
-                    cameraID = Int32.Parse(item.Attribute("Camera_ID").Value);
+                    cameraID = Int32.Parse(item.Attribute("camId").Value);
                     ip = item.Attribute("devIp").Value;
                     port = Int32.Parse(item.Attribute("devPort").Value);
                     eventName = item.Attribute("event").Value;

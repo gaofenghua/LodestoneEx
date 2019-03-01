@@ -233,7 +233,7 @@ namespace TransactionServer.Jobs.Peake_Access
         public event Action<object, JobEventArgs> OnAlarm;
 
         System.Threading.Timer heartbeat_timer = null;
-        int Time_Interval = 1000;
+        int Time_Interval = 5000;
         
         int heartbeat = 0;
 

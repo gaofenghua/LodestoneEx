@@ -153,7 +153,8 @@ namespace TC4I
                     {
                         message += "\r\n";
                     }
-                    message += string.Format("warning: Peake_Access Load Policy map issue, {0}, ip={1}, port={2}.", e.Message, ip, port);
+                    message += string.Format("warning: Peake_Access Load Policy map issue, {0}, policy={1}, camId={2}, devIp={3}, devPort={4}, event={5}, door={6}.",
+                        e.Message, policyID, cameraID,ip,port,eventName,doorNumber);
                     continue;
                 }
 

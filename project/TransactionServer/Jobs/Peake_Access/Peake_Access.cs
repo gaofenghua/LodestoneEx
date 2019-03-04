@@ -155,7 +155,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
             //client.Send(Peak_Package_CMD_AllowDataUpload, 0, Peak_Package_CMD_AllowDataUpload.Length);
             //// client.Send(Peak_Package_CMD_Upload, 0, Peak_Package_CMD_Upload.Length);
-            ////client.Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
+            //sockets[0].Send(Peak_Package_CMD_OpenDoor, 0, Peak_Package_CMD_OpenDoor.Length);
 
             heartbeat_timer = new Timer(HeartBeat, null, Time_Interval, Timeout.Infinite);
 
@@ -368,54 +368,9 @@ namespace TransactionServer.Jobs.Peake_Access
                             Peake_Access.PrintLog(0, String.Format("Peake_Access received package: 上传全部报警数据（0xD1）  [{0}]", BitConverter.ToString(obj, i, package_len)));
                             break;
                         case 0x1e: //刷卡/密码开门数据上传 （0x1E)
-
-                            //int data_num = obj[data_begin];
-                            //for(int n =0;n<data_num;n++)
-                            //{
-                            //    //log = String.Format("卡号 [{0}], 门号[{1}], 开门结果[{2}]", BitConverter.ToString(obj, data_begin+1+n*12, 4), BitConverter.ToString(obj, data_begin + 5 + n * 12, 1), BitConverter.ToString(obj, data_begin + 6 + n * 12, 1));
-                            //    //Trace.WriteLine(log);
-                            //    //Peake_Access.PrintLog(log);
-
-
-                            //    string CardNumber = BitConverter.ToString(obj, data_begin + 1 + n * 12, 4);
-                            //    byte b_Doornum = obj[data_begin + 5 + n * 12];
-                            //    byte OpenDoor_Result = obj[data_begin + 6 + n * 12];
-
-                            //    byte Mask_DoorNumber = 0x01;
-                            //    int DoorNumber = 1;
-                            //    for(;DoorNumber<9;DoorNumber++)
-                            //    {
-                            //        if((b_Doornum & Mask_DoorNumber) == Mask_DoorNumber)
-                            //        {
-                            //            break;
-                            //        }
-                            //        b_Doornum = (byte)(b_Doornum >> 1);
-                            //    }
-
-
-                            //    byte Mask_ValidCard = 0x80;
-                            //    if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
-                            //    {
-                            //        int policy_id = rules[DoorNumber,(int)Peake_Event.Invalid_Card].Policy_ID;
-                            //        int camera_id = rules[DoorNumber,(int)Peake_Event.Invalid_Card].Camera_ID;
-
-                            //        log = String.Format("报警： 无效刷卡 卡号[{0}], 门号[{1}], CameraID={2}, PolicyID={3}.", CardNumber, DoorNumber, camera_id, policy_id);
-                            //        Trace.WriteLine(log);
-                            //        Peake_Access.PrintLog(log);
-
-                            //        bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
-                            //        if (ret == false)
-                            //        {
-                            //            log = String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message);
-                            //            Trace.WriteLine(log);
-                            //            Peake_Access.PrintLog(log);
-                            //        }
-                            //    }
-                            // }
                             ParseData_0x1E(data_begin, data_len, obj);
                             break;
                     }
-
                     i = i + package_len;
                 }
                 else
@@ -428,8 +383,6 @@ namespace TransactionServer.Jobs.Peake_Access
 
         private void Client_OnConnect(bool obj)
         {
-            //Console.WriteLine($"pack连接{obj}");
-
             if (obj == false)
             {
                 status = Socket_Status.Connect_Failed;
@@ -672,17 +625,10 @@ namespace TransactionServer.Jobs.Peake_Access
 
             if (policy_id != -1 && camera_id != -1)
             {
-                //bool ret = Global.Avms.TriggerAlarm(camera_id, policy_id);
-                //if (ret == false)
-                //{
-                //    Peake_Access.PrintLog(0, String.Format("error: Trigger Alarm Failed. {0}", Global.Avms.message));
-                //}
                 Peake_Access.PrintLog(0, String.Format("报警：{0}, 控制器={1}, 门号={2}, CameraID={3}, PolicyID={4}.", Peake_Access.Event_Name[PA_Event], id, door_num, camera_id, policy_id));
 
                 if(OnAlarm != null)
                 {
-                    //JobEventArgs args = new JobEventArgs(this, "");
-                    //OnAlarm(this,args);
                     int nEventTime = (int)(event_time - new DateTime(1970, 1, 1)).TotalSeconds;
                     JobEventInfo info = new JobEventInfo(nEventTime);    // alarm time
                     info.camera_id = camera_id;

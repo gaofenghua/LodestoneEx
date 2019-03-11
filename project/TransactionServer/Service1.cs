@@ -49,7 +49,8 @@ namespace TransactionServer
         }
 
         protected override void OnStart(string[] args)
-        {            this.runJobs();
+        {
+            this.runJobs();
         }
 
         protected override void OnStop()

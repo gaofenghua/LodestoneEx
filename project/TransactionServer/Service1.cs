@@ -49,11 +49,7 @@ namespace TransactionServer
         }
 
         protected override void OnStart(string[] args)
-        {
-            // debug
-            Thread.Sleep(1000 * 30);
-            //
-            this.runJobs();
+        {            this.runJobs();
         }
 
         protected override void OnStop()
@@ -84,9 +80,9 @@ namespace TransactionServer
                             }
                             string assemblyName = sectionType.Split(',')[1];
                             string classFullName = string.Empty;
-                            if (2 == sectionName.Split('_').Length & false) //This conflict need to be fixed -- Indy
+                            if (2 == sectionName.Split('-').Length)
                             {
-                                classFullName = assemblyName + ".Jobs." + sectionName.Split('_')[0] + ".Config";
+                                classFullName = assemblyName + ".Jobs." + sectionName.Split('-')[0] + ".Config";
                             }
                             else
                             {

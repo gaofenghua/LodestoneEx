@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 using socket.framework.Server;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
-using System.Reflection;
-using TC4I_Socket;
+using TC4I;
+using System.Windows;
 
 namespace TransactionServer.Jobs.Client_Com
 {
@@ -55,12 +54,36 @@ namespace TransactionServer.Jobs.Client_Com
         public void executeLogic()
         {
             SocketServer = new CC_SocketServer(10, 1024, 0, 12345, 0xFF);
+
+            MessageBox.Show("Start send data");
+
+            Socket_Data CameraData = new Socket_Data();
+            CameraData.Data_Type = Socket_Data_Type.Camera_Data;
+            //CameraData.Photo= TC4I_Common.ReadImageFile("d:\\Axis_Code\\Sample_Image\\face\\20181211133729-0.jpg"); //d:\Axis_Code\Sample_Image\第三方智能分析截图.png
+            CameraData.Photo2 = TC4I_Common.ReadImageFile("d:\\Axis_Code\\Sample_Image\\第三方智能分析截图.png"); //
+
+            byte[] CameraData_Package = null;
+            TC4I_Socket.serializeObjToByte(CameraData, out CameraData_Package);
+
+            string path = "d:\\Axis_Code\\Sample_Image\\face";
+            var files = Directory.GetFiles(path, "*.jpg");
+
+            for(int i=0;i<1;i++)
+            {
+                foreach (var file in files)
+                {
+                    CameraData.Photo = TC4I_Common.ReadImageFile(file);
+                    TC4I_Socket.serializeObjToByte(CameraData, out CameraData_Package);
+                    SocketServer.server.Send(1, CameraData_Package, 0, CameraData_Package.Length);
+                }
+            }
+      
         }
     }
  
     public class CC_SocketServer
     {
-        TcpPackServer server;
+        public TcpPackServer server;
         /// <summary>
         /// 设置基本配置
         /// </summary>   
@@ -96,11 +119,9 @@ namespace TransactionServer.Jobs.Client_Com
         {
             //int aaa = server.GetAttached<int>(arg1);
             //Console.WriteLine($"Pack已接收:{arg1} 长度:{arg2.Length}");          
-            server.Send(arg1, arg2, 0, arg2.Length);
+            //server.Send(arg1, arg2, 0, arg2.Length);
 
-            object deserializeData = null;
-            deserializeByteToObj(arg2, out deserializeData);
-            Socket_Data RevData = (Socket_Data)deserializeData;
+            Parse_Received_Data(arg1, arg2);
         }
 
         private void Server_OnClose(int obj)
@@ -115,100 +136,17 @@ namespace TransactionServer.Jobs.Client_Com
             Console.WriteLine($"Pack中断{obj}");
         }
 
-        public bool serializeObjToStr(Object obj, out string serializedStr)
+        public void Parse_Received_Data(int clientID, byte[] rev)
         {
-            bool serializeOk = false;
-            serializedStr = "";
-            try
+            object deserializeData = null;
+            TC4I_Socket.deserializeByteToObj(rev, out deserializeData);
+            Socket_Data RevData = (Socket_Data)deserializeData;
+
+            switch(RevData.Data_Type)
             {
-                MemoryStream memoryStream = new MemoryStream();
-                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                binaryFormatter.Serialize(memoryStream, obj);
-                serializedStr = System.Convert.ToBase64String(memoryStream.ToArray());
-
-                serializeOk = true;
-            }
-            catch
-            {
-                serializeOk = false;
-            }
-
-            return serializeOk;
-        }
-
-        public bool deserializeStrToObj(string serializedStr, out object deserializedObj)
-        {
-            bool deserializeOk = false;
-            deserializedObj = null;
-
-            try
-            {
-                byte[] restoredBytes = System.Convert.FromBase64String(serializedStr);
-                MemoryStream restoredMemoryStream = new MemoryStream(restoredBytes);
-                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                deserializedObj = binaryFormatter.Deserialize(restoredMemoryStream);
-
-                deserializeOk = true;
-            }
-            catch
-            {
-                deserializeOk = false;
-            }
-
-            return deserializeOk;
-        }
-
-        public bool serializeObjToByte(Object obj, out byte[] serializedByte)
-        {
-            bool serializeOk = false;
-            serializedByte = null;
-            try
-            {
-                MemoryStream memoryStream = new MemoryStream();
-                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                binaryFormatter.Serialize(memoryStream, obj);
-                serializedByte = memoryStream.ToArray();
-
-                serializeOk = true;
-            }
-            catch
-            {
-                serializeOk = false;
-            }
-
-            return serializeOk;
-        }
-
-        public bool deserializeByteToObj(Byte[] serializedByte, out object deserializedObj)
-        {
-            bool deserializeOk = false;
-            deserializedObj = null;
-
-            try
-            {
-                MemoryStream restoredMemoryStream = new MemoryStream(serializedByte);
-                //BinaryFormatter binaryFormatter = new BinaryFormatter();
-                IFormatter formatter = new BinaryFormatter();
-                formatter.Binder = new UBinder();
-
-                //deserializedObj = binaryFormatter.Deserialize(restoredMemoryStream);
-                deserializedObj = formatter.Deserialize(restoredMemoryStream);
-                deserializeOk = true;
-            }
-            catch
-            {
-                deserializeOk = false;
-            }
-
-            return deserializeOk;
-        }
-
-        public class UBinder : SerializationBinder
-        {
-            public override Type BindToType(string assemblyName, string typeName)
-            {
-                Assembly ass = Assembly.GetExecutingAssembly();
-                return ass.GetType(typeName);
+                case Socket_Data_Type.Heartbeat:
+                    server.Send(clientID, rev,0,rev.Length);
+                    break;
             }
         }
     }

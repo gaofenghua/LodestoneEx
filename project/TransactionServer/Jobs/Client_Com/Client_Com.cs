@@ -8,12 +8,20 @@ using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using TC4I;
 using System.Windows;
+using System.Collections.Concurrent;
 
 namespace TransactionServer.Jobs.Client_Com
 {
-    class Client_Com : Base.ServiceJob
+    public struct Client_Info
+    {
+        public int ClientID;
+        public int Heartbeat;
+        public int RegisteredCameraID;
+    }
+    public class Client_Com : Base.ServiceJob
     {
         public CC_SocketServer SocketServer = null;
+ 
         protected override void Init()
         {
             // throw new NotImplementedException();
@@ -54,35 +62,43 @@ namespace TransactionServer.Jobs.Client_Com
         public void executeLogic()
         {
             SocketServer = new CC_SocketServer(10, 1024, 0, 12345, 0xFF);
+            SocketServer.parent = this;
 
             MessageBox.Show("Start send data");
+            return;
 
-            Socket_Data CameraData = new Socket_Data();
-            CameraData.Data_Type = Socket_Data_Type.Camera_Data;
-            //CameraData.Photo= TC4I_Common.ReadImageFile("d:\\Axis_Code\\Sample_Image\\face\\20181211133729-0.jpg"); //d:\Axis_Code\Sample_Image\第三方智能分析截图.png
+            Socket_Data SocketData = new Socket_Data();
+            SocketData.DataType = Socket_Data_Type.Camera_Data;
+
+            Camera_Data CameraData = new Camera_Data();
+            CameraData.Photo= TC4I_Common.ReadImageFile("d:\\Axis_Code\\Sample_Image\\face\\20181211133729-0.jpg"); //d:\Axis_Code\Sample_Image\第三方智能分析截图.png
             CameraData.Photo2 = TC4I_Common.ReadImageFile("d:\\Axis_Code\\Sample_Image\\第三方智能分析截图.png"); //
-
+            SocketData.SubData = CameraData;
             byte[] CameraData_Package = null;
-            TC4I_Socket.serializeObjToByte(CameraData, out CameraData_Package);
+            TC4I_Socket.serializeObjToByte(SocketData, out CameraData_Package);
+            SocketServer.server.Send(1, CameraData_Package, 0, CameraData_Package.Length);
 
             string path = "d:\\Axis_Code\\Sample_Image\\face";
             var files = Directory.GetFiles(path, "*.jpg");
 
-            for(int i=0;i<1;i++)
+            for (int i = 0; i < 1; i++)
             {
                 foreach (var file in files)
                 {
                     CameraData.Photo = TC4I_Common.ReadImageFile(file);
-                    TC4I_Socket.serializeObjToByte(CameraData, out CameraData_Package);
+                    SocketData.SubData = CameraData;
+                    TC4I_Socket.serializeObjToByte(SocketData, out CameraData_Package);
                     SocketServer.server.Send(1, CameraData_Package, 0, CameraData_Package.Length);
                 }
             }
-      
+
         }
     }
  
     public class CC_SocketServer
     {
+        public Client_Com parent;
+        public ConcurrentDictionary<int, Client_Info> ClientList = new ConcurrentDictionary<int, Client_Info>();
         public TcpPackServer server;
         /// <summary>
         /// 设置基本配置
@@ -108,6 +124,12 @@ namespace TransactionServer.Jobs.Client_Com
             //server.SetAttached(obj, 555);
             Console.WriteLine($"Pack已连接{obj}");
 
+            Client_Info RemoteClient = new Client_Info();
+            RemoteClient.ClientID = obj;
+            RemoteClient.Heartbeat = 0;
+            RemoteClient.RegisteredCameraID = -1;
+
+            ClientList[obj] = RemoteClient;
         }
 
         private void Server_OnSend(int arg1, int arg2)
@@ -138,16 +160,62 @@ namespace TransactionServer.Jobs.Client_Com
 
         public void Parse_Received_Data(int clientID, byte[] rev)
         {
+            Client_Info RemoteClient;
+            if(!ClientList.TryGetValue(clientID,out RemoteClient))
+            {
+                return;
+            }
+
             object deserializeData = null;
             TC4I_Socket.deserializeByteToObj(rev, out deserializeData);
             Socket_Data RevData = (Socket_Data)deserializeData;
 
-            switch(RevData.Data_Type)
+            switch(RevData.DataType)
             {
                 case Socket_Data_Type.Heartbeat:
+                    Heartbeat_Data HeartbeatData = (Heartbeat_Data)RevData.SubData;
                     server.Send(clientID, rev,0,rev.Length);
                     break;
+                case Socket_Data_Type.Command:
+                    Command_Request CommandRequest = (Command_Request)RevData.SubData;
+                    switch(CommandRequest.Command)
+                    {
+                        case Socket_Command.GetCameraList:
+                            Command_GetCameraList(clientID);
+                            break;
+                    }
+                    break;
             }
+        }
+
+        public void Command_GetCameraList(int ClientID)
+        {
+            Camera_Info[] CameraList = new Camera_Info[5];
+
+            for(int i=0;i<5;i++)
+            {
+                CameraList[i].ID = i;
+                CameraList[i].Name = string.Format("Camera_Name_{0}", i);
+                CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
+                CameraList[i].Status = 0;
+            }
+
+            Command_Return CommandReturn = new Command_Return();
+            CommandReturn.Command = Socket_Command.GetCameraList;
+            CommandReturn.Result = CameraList;
+
+            Send(ClientID, CommandReturn, Socket_Data_Type.Command_Return);
+        }
+
+        public void Send(int ClientID, object SendData, Socket_Data_Type DataType)
+        {
+            Socket_Data SocketData = new Socket_Data();
+            SocketData.DataType = DataType;
+            SocketData.SubData = SendData;
+
+            byte[] SendPackage = null;
+            TC4I_Socket.serializeObjToByte(SocketData, out SendPackage);
+            server.Send(ClientID, SendPackage, 0, SendPackage.Length);
         }
     }
 }

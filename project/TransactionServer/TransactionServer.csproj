@@ -150,6 +150,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\ThinClient\ThinClient\TC4I_Common.cs">
+      <Link>TC4I_Common.cs</Link>
+    </Compile>
     <Compile Include="..\..\..\ThinClient\ThinClient\TC4I_Socket.cs">
       <Link>TC4I_Socket.cs</Link>
     </Compile>

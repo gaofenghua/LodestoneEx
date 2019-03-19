@@ -64,7 +64,7 @@ namespace TransactionServer.Jobs.Client_Com
             SocketServer = new CC_SocketServer(10, 1024, 0, 12345, 0xFF);
             SocketServer.parent = this;
 
-            MessageBox.Show("Start send data");
+            //MessageBox.Show("Start send data");
             return;
 
             Socket_Data SocketData = new Socket_Data();

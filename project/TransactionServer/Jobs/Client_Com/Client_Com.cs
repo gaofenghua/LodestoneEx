@@ -9,6 +9,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using TC4I;
 using System.Windows;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace TransactionServer.Jobs.Client_Com
 {
@@ -97,6 +98,10 @@ namespace TransactionServer.Jobs.Client_Com
  
     public class CC_SocketServer
     {
+        public static int Maximum_Connection_Number = 5;
+        System.Threading.Timer Heartbeat_Timer = null;
+        int Heartbeat_Time_Interval = 1000 * 5;
+
         public Client_Com parent;
         public ConcurrentDictionary<int, Client_Info> ClientList = new ConcurrentDictionary<int, Client_Info>();
         public TcpPackServer server;
@@ -117,6 +122,8 @@ namespace TransactionServer.Jobs.Client_Com
             server.OnClose += Server_OnClose;
             server.OnDisconnect += Server_OnDisconnect;
             server.Start(port);
+
+            Heartbeat_Timer = new Timer(HeartBeat, null, Heartbeat_Time_Interval, Timeout.Infinite);
         }
 
         private void Server_OnAccept(int obj)
@@ -216,6 +223,26 @@ namespace TransactionServer.Jobs.Client_Com
             byte[] SendPackage = null;
             TC4I_Socket.serializeObjToByte(SocketData, out SendPackage);
             server.Send(ClientID, SendPackage, 0, SendPackage.Length);
+        }
+
+        public void HeartBeat(object obj)
+        {
+            List<int> ClientToRemove = new List<int>();
+            foreach(KeyValuePair<int, Client_Info> kvp in ClientList)
+            {
+                if(kvp.Value.Heartbeat < -3)
+                {
+                    ClientToRemove.Add(kvp.Key);
+                }
+            }
+            foreach(int ClientID in ClientToRemove)
+            {
+                Client_Info ClientInfo;
+                ClientList.TryRemove(ClientID,out ClientInfo);
+                server.Close(ClientID);
+            }
+
+            Heartbeat_Timer.Change(Heartbeat_Time_Interval, Timeout.Infinite);
         }
     }
 }

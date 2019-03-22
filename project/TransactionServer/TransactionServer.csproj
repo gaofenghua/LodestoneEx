@@ -161,6 +161,7 @@
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
     <Compile Include="CgiFactory.cs" />
+    <Compile Include="DeviceFilter.cs" />
     <Compile Include="EventMonitor.cs" />
     <Compile Include="JobEventNotification.cs" />
     <Compile Include="Jobs\AVMS\Config.cs" />
@@ -225,7 +226,9 @@ xcopy "$(SolutionDir)..\input\library\dll\x64\libcurl.dll" "$(SolutionDir)..\out
 xcopy "$(SolutionDir)..\input\library\dll\x64\LibCurlNet.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(SolutionDir)..\input\library\dll\x64\LibCurlShim.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
 xcopy "$(SolutionDir)..\input\library\dll\x64\Newtonsoft.Json.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
-xcopy "$(ProjectDir)transaction.conf" "$(SolutionDir)..\output\bin\Debug\" /Y</PostBuildEvent>
+xcopy "$(ProjectDir)transaction.conf" "$(SolutionDir)..\output\bin\Debug\" /Y
+xcopy "$(SolutionDir)..\input\library\dll\x64\BS7400Ctl.dll" "$(SolutionDir)..\output\bin\Debug\" /Y
+xcopy "$(SolutionDir)..\input\library\dll\x64\CDS7400EXP.dll" "$(SolutionDir)..\output\bin\Debug\" /Y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

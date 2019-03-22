@@ -72,8 +72,6 @@ namespace TransactionServer.Jobs.Peake_Access
 
         protected override void Stop()
         {
-            //client.Close();
-
             this.m_IsRunning = false;
         }
 
@@ -88,7 +86,6 @@ namespace TransactionServer.Jobs.Peake_Access
 
             config = new PA_xmlConfig();
             config.Load_Event_Map();
-            //config.Load_Systems();
             if (config.status == false)
             {
                 Peake_Access.PrintLog(0, String.Format("error: configuration load failed, {0} Exit Peake_Access process.", config.message));

@@ -23,11 +23,11 @@ namespace TransactionServer.Jobs.AVMS
     public class Job : Base.ServiceJob
     {
         private string m_jobName = string.Empty;
-        string m_serverIp = string.Empty;
-        string m_serverUsername = string.Empty;
-        string m_serverPassword = string.Empty;
-        Dictionary<uint, string> m_serverList = new Dictionary<uint, string>();
-        Dictionary<uint, CCamera> m_cameraList = new Dictionary<uint, CCamera>();
+        private string m_serverIp = string.Empty;
+        private string m_serverUsername = string.Empty;
+        private string m_serverPassword = string.Empty;
+        private Dictionary<uint, string> m_serverList = new Dictionary<uint, string>();
+        private Dictionary<uint, CCamera> m_cameraList = new Dictionary<uint, CCamera>();
         private AlarmType m_enumAlarmType = AlarmType.UNKNOWN;
         private string m_policyTypeDesc = string.Empty; // XML format
         private Dictionary<int, ArrayList> m_mapActionEvents = null;
@@ -52,6 +52,7 @@ namespace TransactionServer.Jobs.AVMS
         private EventMonitor m_eventMonitor;
         private ManualResetEvent m_waitForServerInitialized = new ManualResetEvent(false);
         public delegate void MessageHandler(MessageEventArgs e);
+        private DeviceFilter m_deviceFilter = null;
 
         private const string OWNER = "AVMS";
         private const string IP_ADDRESS = "127.0.0.1";
@@ -85,7 +86,7 @@ namespace TransactionServer.Jobs.AVMS
             }
         }
 
-        public enum AlarmType
+        private enum AlarmType
         {
             [Description("Unknown")]
             UNKNOWN = -1,
@@ -96,6 +97,16 @@ namespace TransactionServer.Jobs.AVMS
             CORD_CUT = 8,
             //
             CUSTOMIZED = 12,
+        }
+
+        public Dictionary<uint, string> ServerList
+        {
+            get { return m_serverList; }
+        }
+
+        public Dictionary<uint, CCamera> CameraList
+        {
+            get { return m_cameraList; }
         }
 
         private void PrintLog(string text)
@@ -127,6 +138,8 @@ namespace TransactionServer.Jobs.AVMS
                 m_serverPassword = PASSWORD;
             }
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
+
+            m_deviceFilter = new DeviceFilter();
         }
 
         protected override void Cleanup()
@@ -146,6 +159,8 @@ namespace TransactionServer.Jobs.AVMS
                 m_bAVMSMessageSend = false;
             }
             m_avms = null;
+
+            m_deviceFilter = null;
         }
 
         protected override void Start()
@@ -277,7 +292,6 @@ namespace TransactionServer.Jobs.AVMS
         private void ExecuteLogic()
         {
             m_avms = new AVMSCom(m_serverIp, m_serverUsername, m_serverPassword);
-            //m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
             if ((null != m_avms) && (!m_bAVMSMessageSend))
             {
                 m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
@@ -484,6 +498,8 @@ namespace TransactionServer.Jobs.AVMS
             try
             {
                 PopulateCameraList();
+
+                m_deviceFilter.UpdateAVMSCameras(m_cameraList);
             }
             catch (Exception ex)
             {

@@ -196,6 +196,11 @@ namespace TC4I
                 for(int i=0;i<paEvents.Count();i++)
                 {
                     int eventIndex = (int)paEvents[i];
+                    // Avoid double setup for one event/door
+                    if (Controllers[found].Rules[doorNumber, eventIndex].Policy_ID != -1 && Controllers[found].Rules[doorNumber, eventIndex].Camera_ID != -1)
+                    {
+                        Peake_Access.PrintLog(0, String.Format("warning: configuration override, Controller={0} door={1} event={2}, Policy already exist ({3}). ", Controllers[found].IP, doorNumber, eventName, Controllers[found].Rules[doorNumber, eventIndex].Policy_ID));
+                    }
                     Controllers[found].Rules[doorNumber, eventIndex].Policy_ID = policyID;
                     Controllers[found].Rules[doorNumber, eventIndex].Camera_ID = cameraID;
                 }

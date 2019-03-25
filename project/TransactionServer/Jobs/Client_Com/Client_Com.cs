@@ -98,7 +98,7 @@ namespace TransactionServer.Jobs.Client_Com
  
     public class CC_SocketServer
     {
-        public static int Maximum_Connection_Number = 5;
+        public static int Maximum_Connection_Number = 2;
         System.Threading.Timer Heartbeat_Timer = null;
         int Heartbeat_Time_Interval = 1000 * 5;
 
@@ -131,6 +131,19 @@ namespace TransactionServer.Jobs.Client_Com
             //server.SetAttached(obj, 555);
             Console.WriteLine($"Pack已连接{obj}");
 
+            if(ClientList.Count()>= Maximum_Connection_Number)
+            {
+                string message = string.Format("Server connection over maximum number {0}/{1}, Connection closed. ",ClientList.Count(),Maximum_Connection_Number);
+                Send(obj, message, Socket_Data_Type.Message);
+
+                Command_Request CommandRequest = new Command_Request();
+                CommandRequest.Command = Socket_Command.CloseSocket;
+                CommandRequest.Arg = null;
+
+                Send(obj, CommandRequest, Socket_Data_Type.Command);
+                return;
+            }
+
             Client_Info RemoteClient = new Client_Info();
             RemoteClient.ClientID = obj;
             RemoteClient.Heartbeat = 0;
@@ -146,10 +159,6 @@ namespace TransactionServer.Jobs.Client_Com
 
         private void Server_OnReceive(int arg1, byte[] arg2)
         {
-            //int aaa = server.GetAttached<int>(arg1);
-            //Console.WriteLine($"Pack已接收:{arg1} 长度:{arg2.Length}");          
-            //server.Send(arg1, arg2, 0, arg2.Length);
-
             Parse_Received_Data(arg1, arg2);
         }
 
@@ -161,8 +170,8 @@ namespace TransactionServer.Jobs.Client_Com
 
         private void Server_OnDisconnect(int obj)
         {
-            //int aaa = server.GetAttached<int>(obj);
-            Console.WriteLine($"Pack中断{obj}");
+            Client_Info ClientInfo;
+            ClientList.TryRemove(obj, out ClientInfo);
         }
 
         public void Parse_Received_Data(int clientID, byte[] rev)

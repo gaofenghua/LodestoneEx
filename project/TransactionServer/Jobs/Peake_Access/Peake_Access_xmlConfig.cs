@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.IO;
 using TransactionServer.Jobs.Peake_Access;
+using System.Net;
 
 namespace TC4I
 {
@@ -144,6 +145,12 @@ namespace TC4I
                     if(doorNumber<0 || doorNumber > 8)
                     {
                         throw new IndexOutOfRangeException("The door number is out of range");
+                    }
+                    //Check for ip address format
+                    IPAddress ipaddress;
+                    if(IPAddress.TryParse(ip,out ipaddress)==false)
+                    {
+                        throw new IndexOutOfRangeException("The IP address is incorrect");
                     }
                 }
                 catch (Exception e) //NullReferenceException,FormatException

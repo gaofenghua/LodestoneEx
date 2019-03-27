@@ -161,6 +161,7 @@
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
     <Compile Include="CgiFactory.cs" />
+    <Compile Include="Device.cs" />
     <Compile Include="DeviceFilter.cs" />
     <Compile Include="EventMonitor.cs" />
     <Compile Include="JobEventNotification.cs" />

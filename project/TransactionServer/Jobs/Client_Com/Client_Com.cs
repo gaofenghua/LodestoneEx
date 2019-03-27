@@ -92,6 +92,9 @@ namespace TransactionServer.Jobs.Client_Com
                     SocketServer.server.Send(1, CameraData_Package, 0, CameraData_Package.Length);
                 }
             }
+        }
+        public void OnACAPCameraListUpdate(object sender, EventArgs e)
+        {
 
         }
     }

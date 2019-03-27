@@ -50,6 +50,7 @@ namespace TransactionServer
 
         protected override void OnStart(string[] args)
         {
+            Thread.Sleep(30 * 1000);
             this.runJobs();
         }
 
@@ -133,6 +134,7 @@ namespace TransactionServer
                 PrintLog(String.Format("{0} : throw exception \"{1}\"", prefix, error.ToString()));
                 ServiceTools.WindowsServiceStop("TransactionServer");
             }
+            RegisterEvents();
         }
 
         private void stopJobs()
@@ -162,6 +164,20 @@ namespace TransactionServer
             {
                 PrintLog(String.Format("Fail to run job[{0}] : {1}", job.ToString(), e.Message));
                 ServiceTools.WindowsServiceStop("TransactionServer");
+            }
+        }
+        private void RegisterEvents()
+        {
+            TransactionServer.Jobs.AVMS.Job Avms = (TransactionServer.Jobs.AVMS.Job)hashJobs["AVMS"];
+            TransactionServer.Jobs.Client_Com.Client_Com ClientCom = (TransactionServer.Jobs.Client_Com.Client_Com)hashJobs["Client_Com"];
+
+            if(Avms != null && ClientCom != null)
+            {
+                if(Avms.m_deviceFilter==null)
+                {
+                    Thread.Sleep(1000);
+                }
+                Avms.m_deviceFilter.ACAPCameraListUpdateEvent += ClientCom.OnACAPCameraListUpdate;
             }
         }
     }

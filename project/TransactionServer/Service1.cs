@@ -59,7 +59,7 @@ namespace TransactionServer
             this.stopJobs();
         }
 
-        private void runJobs()
+        public void runJobs()
         {
             string prefix = m_className + " - " + MethodBase.GetCurrentMethod().Name;
 

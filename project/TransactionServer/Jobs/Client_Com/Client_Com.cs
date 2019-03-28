@@ -95,7 +95,31 @@ namespace TransactionServer.Jobs.Client_Com
         }
         public void OnACAPCameraListUpdate(object sender, EventArgs e)
         {
+            DeviceArgs Arg = (DeviceArgs)e;
 
+            int DeviceNumber = Arg.Cameras.Count();
+            
+            if(DeviceNumber <= 0)
+            {
+                return;
+            }
+
+            Camera_Info[] CameraList = new Camera_Info[DeviceNumber];
+
+            for (int i = 0; i < DeviceNumber; i++)
+            {
+                CameraList[i].ID = Arg.Cameras[i].id;
+                CameraList[i].Name = Arg.Cameras[i].name;
+                CameraList[i].IP = Arg.Cameras[i].ip;
+                CameraList[i].Status = Arg.Cameras[i].status;
+                CameraList[i].Type = Arg.Cameras[i].type;
+            }
+
+            Command_Request CommandRequest = new Command_Request();
+            CommandRequest.Command = Socket_Command.UpdateCameraList;
+            CommandRequest.Arg = CameraList;
+
+            SocketServer.SendToAll(CommandRequest, Socket_Data_Type.Command);
         }
     }
  
@@ -211,13 +235,13 @@ namespace TransactionServer.Jobs.Client_Com
         {
             Camera_Info[] CameraList = new Camera_Info[5];
 
-            for(int i=0;i<5;i++)
-            {
-                CameraList[i].ID = i;
-                CameraList[i].Name = string.Format("Camera_Name_{0}", i);
-                CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
-                CameraList[i].Status = 0;
-            }
+            //for(int i=0;i<5;i++)
+            //{
+            //    CameraList[i].ID = i;
+            //    CameraList[i].Name = string.Format("Camera_Name_{0}", i);
+            //    CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
+            //    CameraList[i].Status = 0;
+            //}
 
             Command_Return CommandReturn = new Command_Return();
             CommandReturn.Command = Socket_Command.GetCameraList;
@@ -236,7 +260,20 @@ namespace TransactionServer.Jobs.Client_Com
             TC4I_Socket.serializeObjToByte(SocketData, out SendPackage);
             server.Send(ClientID, SendPackage, 0, SendPackage.Length);
         }
+        public void SendToAll(object SendData, Socket_Data_Type DataType)
+        {
+            Socket_Data SocketData = new Socket_Data();
+            SocketData.DataType = DataType;
+            SocketData.SubData = SendData;
 
+            byte[] SendPackage = null;
+            TC4I_Socket.serializeObjToByte(SocketData, out SendPackage);
+
+            foreach(int ClientID in ClientList.Keys)
+            {
+                server.Send(ClientID, SendPackage, 0, SendPackage.Length);
+            }
+        }
         public void HeartBeat(object obj)
         {
             List<int> ClientToRemove = new List<int>();

@@ -13,12 +13,18 @@ namespace TransactionServer
     {
         private Dictionary<string, List<uint>> m_avms_cameras = null;
         private Dictionary<string, ACAPCamera> m_acap_cameras = null;
+        private List<ACAPCamera> m_acap_listCamera = null;
         private Timer process_timer = null;
         public event EventHandler<EventArgs> ACAPCameraListUpdateEvent;
 
         private const int PROCESS_INTERVAL = 90 * 1000;
         private const string FILE_FORMAT = ".csv";
 
+
+        public List<ACAPCamera> GetACAPCameraList()
+        {
+            return m_acap_listCamera;
+        }
 
         public void OnACAPCameraListUpdated(object sender, DeviceArgs e)
         {
@@ -32,6 +38,7 @@ namespace TransactionServer
         {
             m_avms_cameras = new Dictionary<string, List<uint>>();
             m_acap_cameras = new Dictionary<string, ACAPCamera>();
+            m_acap_listCamera = new List<ACAPCamera>();
             process_timer = new Timer(ImportACAPCamera, null, PROCESS_INTERVAL, Timeout.Infinite);
 
             // dummy

@@ -213,6 +213,7 @@ namespace TransactionServer.Jobs.Client_Com
             TC4I_Socket.deserializeByteToObj(rev, out deserializeData);
             Socket_Data RevData = (Socket_Data)deserializeData;
 
+            RemoteClient.Heartbeat = 0;
             switch(RevData.DataType)
             {
                 case Socket_Data_Type.Heartbeat:
@@ -235,13 +236,13 @@ namespace TransactionServer.Jobs.Client_Com
         {
             Camera_Info[] CameraList = new Camera_Info[5];
 
-            //for(int i=0;i<5;i++)
-            //{
-            //    CameraList[i].ID = i;
-            //    CameraList[i].Name = string.Format("Camera_Name_{0}", i);
-            //    CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
-            //    CameraList[i].Status = 0;
-            //}
+            for (int i = 0; i < 5; i++)
+            {
+                CameraList[i].ID = (uint)i;
+                CameraList[i].Name = string.Format("Camera_Name_{0}", i);
+                CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
+                CameraList[i].Status = 0;
+            }
 
             Command_Return CommandReturn = new Command_Return();
             CommandReturn.Command = Socket_Command.GetCameraList;
@@ -276,12 +277,21 @@ namespace TransactionServer.Jobs.Client_Com
         }
         public void HeartBeat(object obj)
         {
+            string message = string.Format("Server Heartbeat: Total Client = {0} ", ClientList.Count());
+
             List<int> ClientToRemove = new List<int>();
             foreach(KeyValuePair<int, Client_Info> kvp in ClientList)
             {
+                message = message + string.Format("\r\nID={0}, Heartbeat={1} ",kvp.Value.ClientID,kvp.Value.Heartbeat);
+               
                 if(kvp.Value.Heartbeat < -3)
                 {
                     ClientToRemove.Add(kvp.Key);
+                }
+                else
+                {
+                    Client_Info ClientInfo = kvp.Value;
+                    ClientInfo.Heartbeat = ClientInfo.Heartbeat - 1;
                 }
             }
             foreach(int ClientID in ClientToRemove)
@@ -291,6 +301,7 @@ namespace TransactionServer.Jobs.Client_Com
                 server.Close(ClientID);
             }
 
+            TC4I_Common.PrintLog(0, message);
             Heartbeat_Timer.Change(Heartbeat_Time_Interval, Timeout.Infinite);
         }
     }

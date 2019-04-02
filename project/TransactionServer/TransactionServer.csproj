@@ -162,6 +162,7 @@
     <Compile Include="Jobs\AVMS\Job.cs" />
     <Compile Include="Jobs\Bosch_IP7400\Config.cs" />
     <Compile Include="Jobs\Bosch_IP7400\Job.cs" />
+    <Compile Include="Device.cs" />
     <Compile Include="Jobs\Peake_Access\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access_xmlConfig.cs" />

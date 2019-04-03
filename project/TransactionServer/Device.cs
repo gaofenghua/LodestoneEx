@@ -8,37 +8,69 @@ namespace TransactionServer
 {
     public enum DEVICE_STATE
     {
-        DEVICE_OFFLINE = 0,
-        DEVICE_ONLINE = 1
+        DEVICE_STATE_UNKNOWN = 0,
+        DEVICE_OFFLINE,
+        DEVICE_ONLINE,
     }
 
     public enum ACAP_TYPE
     {
-        ACAP_FDFR = 1,
-        ACAP_LPR = 2
+        ACAP_TYPE_UNKNOWN = 0,
+        ACAP_FDFR,
+        ACAP_LPR,
     }
 
     public class Device
     {
-        public string ip { get; protected set; }
-        public uint id { get; protected set; }
-        public string name { get; set; }
-        public DEVICE_STATE status { get; set; }
+        public string ip { get; protected set; } = string.Empty;
+        public string ids { get; protected set; } = string.Empty;
+        public string name { get; protected set; } = string.Empty;
+        public DEVICE_STATE status { get; protected set; } = DEVICE_STATE.DEVICE_STATE_UNKNOWN;
     }
 
     public class ACAPCamera : Device
     {
         public ACAP_TYPE type { get; protected set; }
 
-        public ACAPCamera(string ip, uint id, ACAP_TYPE type)
+        public void SetCameraIp(string ip)
         {
             this.ip = ip;
-            this.id = id;
         }
 
-        public void SetType(ACAP_TYPE type)
+        public void SetCameraIds(string ids)
+        {
+            this.ids = ids;
+        }
+
+        public void SetCameraName(string name)
+        {
+            this.name = name;
+        }
+
+        public void SetCameraStatus(DEVICE_STATE status)
+        {
+            this.status = status;
+        }
+
+        public void SetACAPType(ACAP_TYPE type)
         {
             this.type = type;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return this.Equals(obj as ACAPCamera);
+        }
+
+        public override int GetHashCode()
+        {
+            return 0;
+        }
+
+        public bool Equals(ACAPCamera cam)
+        {
+            return (this.ip == cam.ip) && (this.ids == cam.ids) 
+                && (this.type == cam.type) && (this.status == cam.status);
         }
     }
 

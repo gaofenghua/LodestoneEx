@@ -13,8 +13,7 @@ namespace TransactionServer
 {
     public class DeviceFilter
     {
-        private Dictionary<string, string> m_avms_cameras = null;
-        //private Dictionary<string, ACAPCamera> m_acap_cameras = null;
+        private Dictionary<string, uint> m_avms_cameras = null;
         private List<ACAPCamera> m_acap_cameras = null;
         private List<ACAPCamera> m_acap_avms_cameras = null;
         private Timer m_import_timer = null;
@@ -40,7 +39,7 @@ namespace TransactionServer
 
         public DeviceFilter()
         {
-            m_avms_cameras = new Dictionary<string, string>();
+            m_avms_cameras = new Dictionary<string, uint>();
             m_acap_cameras = new List<ACAPCamera>();
             m_acap_avms_cameras = new List<ACAPCamera>();
 
@@ -51,25 +50,12 @@ namespace TransactionServer
 
         public void UpdateAVMSCameras(Dictionary<uint, CCamera> cameras)
         {
+            m_avms_cameras.Clear();
             foreach (CCamera cam in cameras.Values)
             {
                 if (!m_avms_cameras.ContainsKey(cam.IPAddress))
                 {
-                    string ids = cam.CameraId.ToString();
-                    m_avms_cameras.Add(cam.IPAddress, ids);
-                }
-                else
-                {
-                    string ids = m_avms_cameras[cam.IPAddress];
-                    if (string.Empty != ids.Trim())
-                    {
-                        ids += String.Format(",{0}", cam.CameraId);
-                        m_avms_cameras[cam.IPAddress] = ids;
-                    }
-                    else
-                    {
-                        ids += cam.CameraId.ToString() ;
-                    }
+                    m_avms_cameras.Add(cam.IPAddress, cam.CameraId);
                 }
             }
 
@@ -104,11 +90,6 @@ namespace TransactionServer
                             });
                             UpdateFlag(ref bChanged);
                         }
-                        //else
-                        //{
-                        //    m_acap_cameras.RemoveAll(cam => { return cam.ip == camera.ip; });
-                        //    UpdateFlag(ref bChanged);
-                        //}
                     }
                     break;
 
@@ -144,7 +125,7 @@ namespace TransactionServer
             });
         }
 
-        private void MakeDevice(Dictionary<string, string> listAVMS, List<ACAPCamera> listACAP)
+        private void MakeDevice(Dictionary<string, uint> listAVMS, List<ACAPCamera> listACAP)
         {
             lock(utLock)
             {
@@ -154,7 +135,7 @@ namespace TransactionServer
                 {
                     list.ForEach(cam =>
                     {
-                        cam.SetCameraIds(listAVMS[cam.ip]);
+                        cam.SetCameraId(listAVMS[cam.ip]);
                     });
                 }
                 m_acap_avms_cameras = list;

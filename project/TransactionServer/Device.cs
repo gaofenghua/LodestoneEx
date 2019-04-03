@@ -23,7 +23,7 @@ namespace TransactionServer
     public class Device
     {
         public string ip { get; protected set; } = string.Empty;
-        public string ids { get; protected set; } = string.Empty;
+        public uint id { get; protected set; } = 0;
         public string name { get; protected set; } = string.Empty;
         public DEVICE_STATE status { get; protected set; } = DEVICE_STATE.DEVICE_STATE_UNKNOWN;
     }
@@ -37,9 +37,9 @@ namespace TransactionServer
             this.ip = ip;
         }
 
-        public void SetCameraIds(string ids)
+        public void SetCameraId(uint id)
         {
-            this.ids = ids;
+            this.id = id;
         }
 
         public void SetCameraName(string name)
@@ -57,6 +57,7 @@ namespace TransactionServer
             this.type = type;
         }
 
+
         public override bool Equals(object obj)
         {
             return this.Equals(obj as ACAPCamera);
@@ -69,7 +70,7 @@ namespace TransactionServer
 
         public bool Equals(ACAPCamera cam)
         {
-            return (this.ip == cam.ip) && (this.ids == cam.ids) 
+            return (this.ip == cam.ip) && (this.id == cam.id) 
                 && (this.type == cam.type) && (this.status == cam.status);
         }
     }

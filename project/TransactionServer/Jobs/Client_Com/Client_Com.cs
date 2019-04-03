@@ -13,7 +13,7 @@ using System.Threading;
 
 namespace TransactionServer.Jobs.Client_Com
 {
-    public struct Client_Info
+    public class Client_Info
     {
         public int ClientID;
         public int Heartbeat;
@@ -280,21 +280,38 @@ namespace TransactionServer.Jobs.Client_Com
             string message = string.Format("Server Heartbeat: Total Client = {0} ", ClientList.Count());
 
             List<int> ClientToRemove = new List<int>();
-            foreach(KeyValuePair<int, Client_Info> kvp in ClientList)
+            //foreach(KeyValuePair<int, Client_Info> kvp in ClientList)
+            //{
+            //    message = message + string.Format("\r\nID={0}, Heartbeat={1} ",kvp.Value.ClientID,kvp.Value.Heartbeat);
+
+            //    if(kvp.Value.Heartbeat < -3)
+            //    {
+            //        ClientToRemove.Add(kvp.Key);
+            //    }
+            //    else
+            //    {
+            //        Client_Info ClientInfo = ClientList[kvp.Key];
+            //        ClientInfo.Heartbeat = ClientInfo.Heartbeat - 1;
+            //    }
+            //}
+            foreach (Client_Info ClientInfo in ClientList.Values)
             {
-                message = message + string.Format("\r\nID={0}, Heartbeat={1} ",kvp.Value.ClientID,kvp.Value.Heartbeat);
-               
-                if(kvp.Value.Heartbeat < -3)
+                message = message + string.Format("\r\nID={0}, Heartbeat={1} ", ClientInfo.ClientID, ClientInfo.Heartbeat);
+
+                if (ClientInfo.Heartbeat < -3)
                 {
-                    ClientToRemove.Add(kvp.Key);
+                    ClientToRemove.Add(ClientInfo.ClientID);
                 }
                 else
                 {
-                    Client_Info ClientInfo = kvp.Value;
                     ClientInfo.Heartbeat = ClientInfo.Heartbeat - 1;
+                    //Client_Info newClient;
+                    //ClientList.TryGetValue(ClientInfo.ClientID,out newClient);
+                    //newClient.Heartbeat = ClientInfo.Heartbeat - 1;
+                    //ClientList.TryUpdate(ClientInfo.ClientID, newClient,ClientInfo);
                 }
             }
-            foreach(int ClientID in ClientToRemove)
+            foreach (int ClientID in ClientToRemove)
             {
                 Client_Info ClientInfo;
                 ClientList.TryRemove(ClientID,out ClientInfo);

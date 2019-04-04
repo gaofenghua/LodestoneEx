@@ -82,7 +82,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void executeLogic()
         {
-            Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
+            Peake_Access.PrintLog(2, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
 
             config = new PA_xmlConfig();
             config.Load_Event_Map();
@@ -197,7 +197,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 }
             }
 
-            Peake_Access.PrintLog(0, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
+            Peake_Access.PrintLog(1, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
 
             heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
         }
@@ -210,7 +210,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            if(index == 2 )
+            if(index > 0 )
             {
                 return;
             }
@@ -337,7 +337,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            Peake_Access.PrintLog(0, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
+            Peake_Access.PrintLog(1, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
 
             int i = 0;
             while (i < obj.Length)
@@ -518,8 +518,8 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void ParseData_0x1A(int n_Begin, int n_Length, byte[] data)
         {
-            byte door1234 = data[n_Begin];
-            byte door5678 = data[n_Begin + 1]; //只有4门控制器，8门控制器先不做
+            byte door1234 = data[n_Begin + 3];
+            byte door5678 = data[n_Begin + 2]; //只有4门控制器，8门控制器先不做
 
             byte door_mask = 0x03;
             byte button_mask = 0x01;
@@ -592,6 +592,10 @@ namespace TransactionServer.Jobs.Peake_Access
                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                 {
                     TriggerAlarm(DoorNumber, Peake_Event.Invalid_Card,eventTime);
+                }
+                else
+                {
+                    TriggerAlarm(DoorNumber, Peake_Event.Open_Success, eventTime);
                 }
 
                 if( (OpenDoor_Result >> 1 & 0x3F) == 0x01 )

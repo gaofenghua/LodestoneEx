@@ -82,7 +82,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void executeLogic()
         {
-            Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
+            Peake_Access.PrintLog(2, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
 
             config = new PA_xmlConfig();
             config.Load_Event_Map();
@@ -197,7 +197,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 }
             }
 
-            Peake_Access.PrintLog(0, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
+            Peake_Access.PrintLog(1, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
 
             heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
         }
@@ -210,7 +210,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            if(index == 2 )
+            if(index > 0 )
             {
                 return;
             }
@@ -337,7 +337,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            Peake_Access.PrintLog(0, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
+            Peake_Access.PrintLog(1, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
 
             int i = 0;
             while (i < obj.Length)

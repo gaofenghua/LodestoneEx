@@ -174,6 +174,13 @@ namespace TC4I
             {
                 Peake_Access.PrintLog(0, String.Format("error: Maximum controller number exceeded. Maximum = {0}, Current controller = {1}. ", Peake_Access.Maximum_Controller_Number,Controllers.Count()));
                 status = false;
+                return;
+            }
+            else if(Controllers.Count() == 0)
+            {
+                Peake_Access.PrintLog(0, String.Format("error: controller number = {0}. ", Controllers.Count()));
+                status = false;
+                return;
             }
             status = true;
         }

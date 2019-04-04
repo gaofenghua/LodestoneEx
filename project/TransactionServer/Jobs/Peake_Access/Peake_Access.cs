@@ -518,8 +518,8 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void ParseData_0x1A(int n_Begin, int n_Length, byte[] data)
         {
-            byte door1234 = data[n_Begin];
-            byte door5678 = data[n_Begin + 1]; //只有4门控制器，8门控制器先不做
+            byte door1234 = data[n_Begin + 3];
+            byte door5678 = data[n_Begin + 2]; //只有4门控制器，8门控制器先不做
 
             byte door_mask = 0x03;
             byte button_mask = 0x01;
@@ -592,6 +592,10 @@ namespace TransactionServer.Jobs.Peake_Access
                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                 {
                     TriggerAlarm(DoorNumber, Peake_Event.Invalid_Card,eventTime);
+                }
+                else
+                {
+                    TriggerAlarm(DoorNumber, Peake_Event.Open_Success, eventTime);
                 }
 
                 if( (OpenDoor_Result >> 1 & 0x3F) == 0x01 )

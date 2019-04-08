@@ -35,6 +35,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         private bool m_bLoadConfiguration = false;
         private Timer m_hbTimer = null;
         private int m_lastMessageTime = 0;
+        private List<string> m_listEventDesc = null;
 
         private const string OWNER = "Bosch.IP7400";
         private const string RECEIVE_PORT = "7700";
@@ -88,6 +89,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             m_devPort = config.DevicePort;
             m_Interval = LINK_INTERVAL;
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
+            m_listEventDesc = GetTypeDescList(typeof(EventType));
             m_bLoadConfiguration = LoadConfiguration(m_workDirectory + @"\" + CONFIG_FILE) && (null != m_xd);
             m_hbTimer = new Timer(new TimerCallback(HeartBeat), null, Timeout.Infinite, 90 * 1000);
         }
@@ -108,6 +110,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             m_xd = null;
             m_events = null;
             m_workDirectory = string.Empty;
+            m_listEventDesc = null;
             m_bLoadConfiguration = false;
             m_hbTimer = null;
         }
@@ -142,6 +145,9 @@ namespace TransactionServer.Jobs.Bosch.IP7400
                     m_revPort = RECEIVE_PORT;
                     PrintLog(String.Format("{0} - {1} : receive_port has not been set, using default port[{2}] instead", m_jobName, methodName, m_revPort));
                 }
+                string log = string.Empty;
+                m_listEventDesc.ForEach(evtDesc => { log += evtDesc + ';'; });
+                PrintLog(String.Format("{0} - {1} : all zone_event_type supported is [{2}]", m_jobName, methodName, log));
 
                 Job.m_mutex.WaitOne();
 
@@ -226,6 +232,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             {
                 m_xd = XDocument.Load(filePath);
                 m_events = GetEventMap(m_xd.Root, "Bosch.IP7400");
+                CheckPolicyMap(m_xd.Root, "Bosch.IP7400");
                 log = string.Format("{0} - {1} : successful under [{2}]", m_jobName, methodName, filePath);
                 PrintLog(log);
                 return true;
@@ -418,6 +425,11 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             }
         }
 
+        private bool ValidateIPAddress(string data)
+        {
+            Regex regex = new Regex(@"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$");
+            return (data != "" && regex.IsMatch(data.Trim())) ? true : false;
+        }
 
         private bool IsTime(string timeval)
         {
@@ -438,11 +450,36 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             return timestamp;
         }
 
-        private string GetEventDesc(EventType type)
+        private List<string> GetTypeDescList(Type t)
         {
-            FieldInfo fieldInfo = type.GetType().GetField(type.ToString());
+            List<string> descList = new List<string>();
+            var nameList = Enum.GetNames(t).ToList();
+            foreach (string key in nameList)
+            {
+                //FieldInfo fieldInfo = t.GetField(key);
+                //DescriptionAttribute attr = Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute), false) as DescriptionAttribute;
+                string desc = GetEventDesc(t, key);
+                if (!descList.Contains(desc))
+                {
+                    descList.Add(desc);
+                }
+            }
+            return descList;
+        }
+
+        private string GetEventDesc(Type t, string name)
+        {
+            FieldInfo fieldInfo = t.GetField(name);
             DescriptionAttribute attr = Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute), false) as DescriptionAttribute;
             return attr.Description;
+        }
+
+        private string GetEventDesc(EventType type)
+        {
+            //FieldInfo fieldInfo = type.GetType().GetField(type.ToString());
+            //DescriptionAttribute attr = Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute), false) as DescriptionAttribute;
+            //return attr.Description;
+            return GetEventDesc(type.GetType(), type.ToString());
         }
 
         private EventType GetEventType(string event_code)
@@ -466,6 +503,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
 
         private Dictionary<string, string> GetEventMap(XElement element, string owner)
         {
+            string methodName = MethodBase.GetCurrentMethod().Name;
             Dictionary<string, string> events = new Dictionary<string, string>();
 
             var eEvents = from item in element.Descendants("event_map")
@@ -476,9 +514,22 @@ namespace TransactionServer.Jobs.Bosch.IP7400
                 events.Clear();
                 foreach (XElement e in it.Elements("event"))
                 {
-                    string[] inputEvents = e.Attribute("desc").Value.Split(',');
+                    string evtDesc = e.Attribute("desc").Value.Trim();
+                    string evtVal = e.Value.Trim();
+                    if ((string.Empty == evtDesc) || (string.Empty == evtVal))
+                    {
+                        PrintLog(String.Format("{0} - {1} : empty value is found in event description [{2}], skip...", m_jobName, methodName, e.ToString()));
+                        continue;
+                    }
+
+                    string[] inputEvents = evtDesc.Split(',');
                     foreach (string inputEvent in inputEvents)
                     {
+                        if (!m_listEventDesc.Contains(inputEvent))
+                        {
+                            PrintLog(String.Format("{0} - {1} : invalid event desc[{2}] is found in event description [{3}], skip...", m_jobName, methodName, inputEvent, e.ToString()));
+                            continue;
+                        }
                         if (!events.ContainsKey(inputEvent))
                         {
                             events.Add(inputEvent, e.Value);
@@ -488,6 +539,72 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             });
 
             return events;
+        }
+
+        private void CheckPolicyMap(XElement element, string owner)
+        {
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            List<string> evtValList = m_events.Values.ToList();
+            var ePolicyMap = from item in element.Descendants("policy_map")
+                             where item.Attribute("owner").Value == OWNER
+                             select item;
+            ePolicyMap.ToList().ForEach(it =>
+            {
+                foreach (XElement e in it.Elements("policy"))
+                {
+                    string devIp = e.Attribute("devIp").Value.Trim();
+                    string devPort = e.Attribute("devPort").Value.Trim();
+                    string zone = e.Attribute("zone").Value.Trim();
+                    string evtVal = e.Attribute("event").Value.Trim();
+                    string camId = e.Attribute("camId").Value.Trim();
+                    string policyId = e.Value.Trim();
+
+
+                    if ((string.Empty == devIp) || (string.Empty == devPort)
+                    || (string.Empty == zone) || (string.Empty == evtVal)
+                    || (string.Empty == camId) || (string.Empty == policyId))
+                    {
+                        PrintLog(String.Format("{0} - {1} : empty value is found in policy map [{2}]", m_jobName, methodName, e.ToString()));
+                        continue;
+                    }
+
+                    string log = string.Empty;
+                    if (!ValidateIPAddress(devIp))
+                    {
+                        log += String.Format("Ip[{0}] is in invalid format;", devIp);
+                    }
+                    int intVal = -1;
+                    bool isValidPort = int.TryParse(devPort, out intVal);
+                    if (!isValidPort)
+                    {
+                        log += String.Format("Port[{0}] is not integer (ref value is 7700);", devPort);
+                    }
+                    bool isValidZone = int.TryParse(zone, out intVal);
+                    if (!isValidZone)
+                    {
+                        log += String.Format("Zone[{0}] is not integer (range in 1~256);", zone);
+                    }
+                    if (!evtValList.Contains(evtVal))
+                    {
+                        log += String.Format("Event Value[{0}] is not included in event map;", evtVal);
+                    }
+                    bool isValidCam = int.TryParse(camId, out intVal);
+                    if (!isValidCam)
+                    {
+                        log += String.Format("CamId[{0}] is not integer;", camId);
+                    }
+                    bool isValidPolicy = int.TryParse(policyId, out intVal);
+                    if (!isValidPolicy)
+                    {
+                        log += String.Format("PolicyId[{0}] is not integer;", policyId);
+                    }
+                    if (string.Empty != log)
+                    {
+                        PrintLog(String.Format("{0} - {1} : invalid value is found in policy map [{2}] with\n[{3}]", m_jobName, methodName, e.ToString(), log));
+                    }
+                }
+            });
         }
 
         private void MakeEvent(XElement element, string event_desc, int zone_no, ref JobEventInfo info)

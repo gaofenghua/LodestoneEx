@@ -162,7 +162,7 @@ namespace TransactionServer.Jobs.AVMS
             catch (Exception error)
             {
                 this.m_IsRunning = false;
-                String.Format("{0} - {1} : failed with exception \"{2}\"", m_jobName, methodName, error.ToString());
+                PrintLog(String.Format("{0} - {1} : failed with exception \"{2}\"", m_jobName, methodName, error.ToString()));
                 throw error;
             }
             finally
@@ -267,7 +267,14 @@ namespace TransactionServer.Jobs.AVMS
                     break;
 
                 default:
-                    PrintLog(String.Format("{0} : [{1}]{2}", methodName, time, message.Split('\t')[1]));
+
+                    string msg = message.Split('\t')[1];
+                    PrintLog(String.Format("{0} : [{1}]{2}", methodName, time, msg));
+                    if (0 == msg.IndexOf("Exception"))
+                    {
+                        Stop();
+                        return;
+                    }
                     break;
             }
 
@@ -276,14 +283,30 @@ namespace TransactionServer.Jobs.AVMS
 
         private void ExecuteLogic()
         {
-            m_avms = new AVMSCom(m_serverIp, m_serverUsername, m_serverPassword);
-            //m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
-            if ((null != m_avms) && (!m_bAVMSMessageSend))
+            //m_avms = new AVMSCom(m_serverIp, m_serverUsername, m_serverPassword);
+            //if ((null != m_avms) && (!m_bAVMSMessageSend))
+            //{
+            //    m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
+            //    m_bAVMSMessageSend = true;
+            //}
+            //m_avms.Connect();
+
+            string methodName = MethodBase.GetCurrentMethod().Name;
+
+            try
             {
-                m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
-                m_bAVMSMessageSend = true;
+                m_avms = new AVMSCom(m_serverIp, m_serverUsername, m_serverPassword);
+                if ((null != m_avms) && (!m_bAVMSMessageSend))
+                {
+                    m_avms.MessageSend += new AVMSCom.MessageEventHandler(this.AVMSCom_MessageSend);
+                    m_bAVMSMessageSend = true;
+                }
+                m_avms.Connect();
             }
-            m_avms.Connect();
+            catch (Exception ex)
+            {
+                PrintLog(String.Format("{0} : {1}", methodName, "Failed to connect to farm: " + ex.Message));
+            }
         }
 
         private void StartAVMSListener()

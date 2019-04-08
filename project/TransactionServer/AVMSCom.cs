@@ -99,13 +99,13 @@ namespace TransactionServer
                 string sStatus = string.Empty;
                 if (string.Empty != (sStatus = LoadFarm()))
                 {
-                    MessageBox.Show(sStatus);
+                    this.OnMessageSend(this, new MessageEventArgs(DateTime.Now.ToString() + "\tException : " + sStatus));
                     return;
                 }
                 m_waitForServerInitialized.Set();
                 if (!m_waitForServerInitialized.WaitOne(TimeSpan.FromSeconds(60)))
                 {
-                    MessageBox.Show("Server connection established but server did not initialize within 60 seconds.");
+                    this.OnMessageSend(this, new MessageEventArgs(DateTime.Now.ToString() + "\tException : Server connection established but server did not initialize within 60 seconds."));
                     DestoryFarm();
                     return;
                 }
@@ -116,7 +116,7 @@ namespace TransactionServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show("There was an error connecting to the farm: " + ex.ToString());
+                this.OnMessageSend(this, new MessageEventArgs(DateTime.Now.ToString() + "\tException : There was an error connecting to the farm[" + ex.ToString() + "]"));
                 DestoryFarm();
             }
         }
@@ -228,7 +228,6 @@ namespace TransactionServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Fail to mark alarm for server " + cam.Server.Name + ": " + ex.ToString());
                 return false;
             }
         }
@@ -259,7 +258,6 @@ namespace TransactionServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Fail to retrieve alarm list from server " + cam.Server.Name + ": " + ex.ToString());
                 return false;
             }
 
@@ -292,7 +290,6 @@ namespace TransactionServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Fail to retrieve image stream from server " + cam.Server.Name + ": " + ex.ToString());
                 return false;
             }
 
@@ -314,7 +311,7 @@ namespace TransactionServer
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.ToString());
+                this.OnMessageSend(this, new MessageEventArgs(DateTime.Now.ToString() + "\t" + ex.ToString()));
                 return false;
             }
         }
@@ -328,7 +325,7 @@ namespace TransactionServer
             }
             else
             {
-                MessageBox.Show("Fail to connect camera.");
+                //MessageBox.Show("Fail to connect camera.");
                 return null;
             }
         }
@@ -341,7 +338,7 @@ namespace TransactionServer
             }
             catch
             {
-                MessageBox.Show("Failed to convert time to UTC time");
+                //MessageBox.Show("Failed to convert time to UTC time");
                 return p_dt;
             }
         }

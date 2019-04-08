@@ -119,8 +119,8 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         {
             int currentTime = ((int)(Convert.ToDateTime(DateTime.Now) - new DateTime(1970, 1, 1)).TotalSeconds);
             int diffTime = 0;
-            PrintLog(String.Format("{0} - Timestamp : Current = {1}, Last = {2}, Diff = {3}s",
-                m_jobName, currentTime, m_lastMessageTime, diffTime = currentTime - m_lastMessageTime));
+            //PrintLog(String.Format("{0} - Timestamp : Current = {1}, Last = {2}, Diff = {3}s",
+            //    m_jobName, currentTime, m_lastMessageTime, diffTime = currentTime - m_lastMessageTime));
             if (diffTime > LINK_INTERVAL * 2)
             {
                 PrintLog(string.Format("{0} - heartbeat : no receive message in period, please check with communication", m_jobName));
@@ -456,8 +456,6 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             var nameList = Enum.GetNames(t).ToList();
             foreach (string key in nameList)
             {
-                //FieldInfo fieldInfo = t.GetField(key);
-                //DescriptionAttribute attr = Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute), false) as DescriptionAttribute;
                 string desc = GetEventDesc(t, key);
                 if (!descList.Contains(desc))
                 {
@@ -476,9 +474,6 @@ namespace TransactionServer.Jobs.Bosch.IP7400
 
         private string GetEventDesc(EventType type)
         {
-            //FieldInfo fieldInfo = type.GetType().GetField(type.ToString());
-            //DescriptionAttribute attr = Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute), false) as DescriptionAttribute;
-            //return attr.Description;
             return GetEventDesc(type.GetType(), type.ToString());
         }
 

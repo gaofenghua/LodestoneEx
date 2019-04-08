@@ -33,6 +33,8 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         private bool m_bTraceLogEnabled = true;
         private bool m_bPrintLogEnabled = false;
         private bool m_bLoadConfiguration = false;
+        private Timer m_hbTimer = null;
+        private int m_lastMessageTime = 0;
 
         private const string OWNER = "Bosch.IP7400";
         private const string RECEIVE_PORT = "7700";
@@ -87,6 +89,7 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             m_Interval = LINK_INTERVAL;
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
             m_bLoadConfiguration = LoadConfiguration(m_workDirectory + @"\" + CONFIG_FILE) && (null != m_xd);
+            m_hbTimer = new Timer(new TimerCallback(HeartBeat), null, Timeout.Infinite, 90 * 1000);
         }
 
         protected override void Cleanup()
@@ -106,6 +109,19 @@ namespace TransactionServer.Jobs.Bosch.IP7400
             m_events = null;
             m_workDirectory = string.Empty;
             m_bLoadConfiguration = false;
+            m_hbTimer = null;
+        }
+
+        private void HeartBeat(object obj)
+        {
+            int currentTime = ((int)(Convert.ToDateTime(DateTime.Now) - new DateTime(1970, 1, 1)).TotalSeconds);
+            int diffTime = 0;
+            PrintLog(String.Format("{0} - Timestamp : Current = {1}, Last = {2}, Diff = {3}s",
+                m_jobName, currentTime, m_lastMessageTime, diffTime = currentTime - m_lastMessageTime));
+            if (diffTime > LINK_INTERVAL * 2)
+            {
+                PrintLog(string.Format("{0} - heartbeat : no receive message in period, please check with communication", m_jobName));
+            }
         }
 
         protected override void Start()
@@ -147,6 +163,10 @@ namespace TransactionServer.Jobs.Bosch.IP7400
                 }
                 testBS7400Ctl.SetLnkIntval(m_pObject, m_Interval);
 
+                int currentTime = ((int)(Convert.ToDateTime(DateTime.Now) - new DateTime(1970, 1, 1)).TotalSeconds);
+                m_lastMessageTime = currentTime;
+                m_hbTimer.Change(0, LINK_INTERVAL * 1000);
+
                 Job.m_mutex.ReleaseMutex();
 
                 PrintLog(String.Format("{0} - {1} : successful", m_jobName, methodName));
@@ -176,6 +196,9 @@ namespace TransactionServer.Jobs.Bosch.IP7400
                 testBS7400Ctl.Delete_Object(m_pObject);
                 m_pObject = IntPtr.Zero;
             }
+
+            
+            m_hbTimer.Change(Timeout.Infinite, LINK_INTERVAL * 1000);
 
             Job.m_mutex.ReleaseMutex();
 
@@ -339,21 +362,23 @@ namespace TransactionServer.Jobs.Bosch.IP7400
                 port = addr[1];
             }
             alarm_time = GetTimeStamp(elements[1]);
+            m_lastMessageTime = alarm_time;
             message = String.Format("ip = {0}, port = {1}, time = {2}", ip, port, alarm_time);
 
+            EventType event_type = EventType.EVENT_UNKNOWN;
             switch (match_count)
             {
                 case 3:
 
-                    event_desc = GetEventDesc(GetEventType(elements[2]));
-                    message = String.Format("{0}, event = {1}", message, event_desc);
+                    event_type = GetEventType(elements[2]);
+                    message = String.Format("{0}, event = {1}", message, event_desc = GetEventDesc(event_type));
                     PrintLog(m_jobName + " - " + message);
 
                     return;
 
                 case 6:
 
-                    EventType event_type = GetEventType(elements[3]);
+                    event_type = GetEventType(elements[3]);
                     message = String.Format("{0}, event = {1}", message, event_desc = GetEventDesc(event_type));
                     if (EventType.COMMUNICATION_SUCCESS == event_type)
                     {

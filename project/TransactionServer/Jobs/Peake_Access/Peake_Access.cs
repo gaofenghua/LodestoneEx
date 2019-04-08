@@ -96,28 +96,6 @@ namespace TransactionServer.Jobs.Peake_Access
                 Peake_Access.PrintLog(0, String.Format("{0}", config.message));
             }
 
-            //for (int i = 0; i < 5; i++)
-            //{
-            //    if (Global.Avms.IsConnected == false)
-            //    {
-            //        Peake_Access.PrintLog(0, String.Format("AVMS server is not connected. Wait 3 seconds and will try again"));
-            //        System.Threading.Thread.Sleep(3000);
-            //    }
-            //    else
-            //    {
-            //        break;
-            //    }
-            //}
-
-            //if (Global.Avms.IsConnected == false)
-            //{
-            //    Peake_Access.PrintLog(0, String.Format("error: AVMS server is not connected. Exit Peake_Access process."));
-            //    return;
-            //}
-
-            //Peake_Access.PrintLog(0, String.Format("AVMS server connected. Straring Peake_Access process."));
-
-
             int n_controller = config.Controllers.Count;
 
             if(n_controller > Maximum_Controller_Number)
@@ -143,8 +121,6 @@ namespace TransactionServer.Jobs.Peake_Access
                 //// Check rules
                 //sockets[i].Print_Rules();
             }
-
-
 
             //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
             //byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
@@ -197,7 +173,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 }
             }
 
-            Peake_Access.PrintLog(1, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
+            Peake_Access.PrintLog(0, String.Format("PA_Heartbeat.Total controller = {0}. Connected={1} {2}. Closed={3} {4}. Connecting={5} {6}", n_conn,n_Normal,s_Normal,n_Closed,s_Closed,n_Connecting,s_Connecting));
 
             heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
         }
@@ -210,7 +186,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            if(index > 0 )
+            if(index == 2 )
             {
                 return;
             }
@@ -218,10 +194,6 @@ namespace TransactionServer.Jobs.Peake_Access
             text = "Log=" + index.ToString() + " " + text;
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
-
-  
-
-
     }
 
     enum Socket_Status { Init, Connecting, Normal, Connect_Failed, Closed };
@@ -337,7 +309,7 @@ namespace TransactionServer.Jobs.Peake_Access
                 return;
             }
 
-            Peake_Access.PrintLog(1, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
+            Peake_Access.PrintLog(0, String.Format("Peake_Access {1} id={2} Received [{0}]", rev, ip_add, id));
 
             int i = 0;
             while (i < obj.Length)
@@ -402,13 +374,11 @@ namespace TransactionServer.Jobs.Peake_Access
             {
                 heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
             }
-
         }
 
         public void Send(byte[] data, int offset, int length)
         {
             client.Send(data, offset, length);
-
         }
 
         private void Client_OnSend(int obj)
@@ -471,7 +441,6 @@ namespace TransactionServer.Jobs.Peake_Access
             client.Close();
             Thread.Sleep(500);
             client.Reconnect(ip_add, port_num);
-
         }
 
         public void HeartBeat(object obj)

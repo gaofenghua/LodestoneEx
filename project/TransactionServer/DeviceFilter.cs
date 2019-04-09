@@ -20,6 +20,8 @@ namespace TransactionServer
         private Timer m_import_timer = null;
         public event EventHandler<EventArgs> ACAPCameraListUpdateEvent;
         private string m_workDirectory = string.Empty;
+        private string m_acapFile = string.Empty;
+        private string m_resultFile = string.Empty;
         private bool m_bTraceLogEnabled = true;
         private bool m_bPrintLogEnabled = false;
 
@@ -64,19 +66,50 @@ namespace TransactionServer
             m_import_timer.Enabled = true;
             m_import_timer.Elapsed += ImportACAPCamera;
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
+            m_acapFile = m_workDirectory + @"\ACAPCameras.csv";
+            m_resultFile = m_workDirectory + @"\CameraList.csv";
+        }
+
+        public void Create()
+        {
+            bool isImported = ImportCSV(m_resultFile);
+            PrintLog(String.Format("Import CSV : {0}\n{1}", isImported, GetItemsInfo(m_acap_avms_cameras)));
+            if (isImported)
+            {
+                this.OnACAPCameraListUpdated(this, new DeviceArgs(this, m_acap_avms_cameras));
+            }
+        }
+
+        public void Destroy()
+        {
+            string info = GetItemsInfo(m_acap_avms_cameras);
+            PrintLog(String.Format("Remove DeviceFilter - ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
+            m_bPrintLogEnabled = false;
+            m_avms_cameras = null;
+            m_acap_cameras = null;
+            m_acap_avms_cameras = null;
+            m_import_timer.Enabled = false;
+            m_import_timer.Elapsed -= ImportACAPCamera;
+            m_import_timer = null;
+            m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
+            m_acapFile = string.Empty;
+            m_resultFile = string.Empty;
         }
 
         public void UpdateAVMSCameras(Dictionary<uint, CCamera> cameras)
         {
+            string info = string.Empty;
             m_avms_cameras.Clear();
             foreach (CCamera cam in cameras.Values)
             {
                 if (!m_avms_cameras.ContainsKey(cam.IPAddress))
                 {
+                    info += String.Format("cameraIp = {0}, cameraId = {1}\n", cam.IPAddress, cam.CameraId);
                     m_avms_cameras.Add(cam.IPAddress, cam.CameraId);
                 }
             }
 
+            PrintLog(String.Format("AVMS Camera List - isChanged = true :\n{0}", info));
             MakeDevice(m_avms_cameras, m_acap_cameras);
         }
 
@@ -122,15 +155,14 @@ namespace TransactionServer
                     break;
             }
 
+            PrintLog(String.Format("ACAP Camera List - isChanged = {0} :\n{1}", bChanged, GetItemsInfo(m_acap_cameras)));
             MakeDevice(m_avms_cameras, m_acap_cameras);
         }
 
         private void ImportACAPCamera(Object obj, ElapsedEventArgs args)
         {
             bool isChanged = false;
-            Import(System.Windows.Forms.Application.StartupPath.ToString() + @"\ACAPCameras.csv", ref isChanged);
-            PrintLog(String.Format("ACAP Camera List - isChanged = {0} :\n{1}", isChanged, GetItemsInfo(m_acap_cameras)));
-            PrintLog("ACAP AVMS Camera List : \n" + GetItemsInfo(m_acap_avms_cameras));
+            Import(m_acapFile, ref isChanged);
         }
 
         public string GetItemsInfo(List<ACAPCamera> list)
@@ -138,7 +170,8 @@ namespace TransactionServer
             string info = string.Empty;
             list.ForEach(delegate (ACAPCamera cam)
             {
-                info += String.Format("cam : ip = {0}, id = {1}, acap_type = {2}, device_state = {3}\n", cam.ip, cam.id, cam.type, cam.status);
+                //info += String.Format("cam : ip = {0}, id = {1}, acap_type = {2}, device_state = {3}\n", cam.ip, cam.id, cam.type, cam.status);
+                info += String.Format("{0}, {1}, {2}, {3}, {4}\n", cam.ip, cam.type, cam.status, cam.id, cam.name);
             });
             return info;
         }
@@ -147,6 +180,12 @@ namespace TransactionServer
         {
             lock(utLock)
             {
+                if ((0 == listAVMS.Count) || (0 == listACAP.Count))
+                {
+                    PrintLog(String.Format("Make device - no action"));
+                    return;
+                }
+
                 List<string> avmsIpList = listAVMS.Keys.ToList();
                 var list = listACAP.Where(cam => avmsIpList.Contains(cam.ip)).ToList();
                 if (0 < list.Count)
@@ -158,26 +197,110 @@ namespace TransactionServer
                 }
                 m_acap_avms_cameras = list;
                 this.OnACAPCameraListUpdated(this, new DeviceArgs(this, m_acap_avms_cameras));
+                string info = GetItemsInfo(m_acap_avms_cameras);
+                PrintLog(String.Format("Make device - OnACAPCameraListUpdated : true, ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
             }
+        }
+
+        private bool ImportCSV(string sFilename)
+        {
+            try
+            {
+                if (!CheckFileCondition(sFilename, FILE_FORMAT))
+                {
+                    return false;
+                }
+
+                Stream stream = File.Open(sFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                StreamReader sr = new StreamReader(stream);
+
+                string content = sr.ReadToEnd();
+                stream.Close();
+                if (string.Empty == content)
+                {
+                    PrintLog("Empty file : " + sFilename);
+                    return false;
+                }
+
+                List<ACAPCamera> cameraList = new List<ACAPCamera>();
+                string[] lines = content.Split('\n');
+                foreach (string line in lines)
+                {
+                    if ((string.Empty == line) || ("\r" == line))
+                    {
+                        PrintLog(String.Format("Invalid line [{0}], skip...\n", line.Trim()));
+                        continue;
+                    }
+
+                    ACAPCamera acap_cam = new ACAPCamera();
+                    bool isOK = Process(line, ',', ref acap_cam);
+                    if (!isOK)
+                    {
+                        PrintLog(String.Format("Process failed with line [{0}], skip...\n", line.Trim()));
+                        continue;
+                    }
+                    else
+                    {
+                        var list = cameraList.Where(cam => cam.ip == acap_cam.ip).ToList();
+                        if (0 == list.Count)
+                        {
+                            cameraList.Add(acap_cam);
+                        }
+                    }
+                }
+                m_acap_avms_cameras = cameraList;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                PrintLog(String.Format("Error importing file \"{0}\" : {1}", sFilename, ex.ToString()));
+                return false;
+            }
+        }
+
+        private bool ExportToCSV(string sFilename, string content)
+        {
+            bool isExported = false;
+
+            StreamWriter sw = new StreamWriter(sFilename, false, Encoding.Unicode);
+            try
+            {
+                sw.WriteLine(content);
+                isExported = true;
+            }
+            catch (Exception ex)
+            {
+                PrintLog(String.Format("Error exporting file \"{0}\" : {1}", sFilename, ex.ToString()));
+                isExported = false;
+            }
+            sw.Close();
+
+            return isExported;
+        }
+
+        private bool CheckFileCondition(string sFilename, string sFileFormat)
+        {
+            if (!File.Exists(sFilename))
+            {
+                PrintLog("File does not exist: " + sFilename);
+                return false;
+            }
+
+            if (sFileFormat.ToLower() != Path.GetExtension(sFilename).ToLower())
+            {
+                PrintLog("Invalid file format : " + sFilename);
+                return false;
+            }
+
+            return true;
         }
 
         private void Import(string sFilename, ref bool bChanged)
         {
             try
             {
-                string log = string.Empty;
-
-                if (!File.Exists(sFilename))
+                if (!CheckFileCondition(sFilename, FILE_FORMAT))
                 {
-                    log += "File does not exist: " + sFilename;
-                    PrintLog(log);
-                    return;
-                }
-
-                if (FILE_FORMAT.ToLower() != Path.GetExtension(sFilename).ToLower())
-                {
-                    log += "Invalid file format : " + sFilename;
-                    PrintLog(log);
                     return;
                 }
 
@@ -188,8 +311,7 @@ namespace TransactionServer
                 stream.Close();
                 if (string.Empty == content)
                 {
-                    log += "Empty file : " + sFilename;
-                    PrintLog(log);
+                    PrintLog("Empty file : " + sFilename);
                     return;
                 }
 
@@ -198,7 +320,7 @@ namespace TransactionServer
                 {
                     if ((string.Empty == line) || ("\r" == line))
                     {
-                        log += String.Format("Invalid line [{0}], skip...\n", line.Trim());
+                        PrintLog(String.Format("Invalid line [{0}], skip...\n", line.Trim()));
                         continue;
                     }
 
@@ -206,7 +328,7 @@ namespace TransactionServer
                     bool isOK = Process(line, ',', ref acap_cam);
                     if (!isOK)
                     {
-                        log += String.Format("Process failed with line [{0}], skip...\n", line.Trim());
+                        PrintLog(String.Format("Process failed with line [{0}], skip...\n", line.Trim()));
                         continue;
                     }
                     else
@@ -214,7 +336,6 @@ namespace TransactionServer
                         UpdateACAPCameras(acap_cam, ref bChanged);
                     }
                 }
-                PrintLog(log);
             }
             catch (Exception ex)
             {
@@ -227,7 +348,7 @@ namespace TransactionServer
             string[] info = data.Trim().Split(separator);
             string log = String.Format("Parse data[{0}] into acap camera : ", data.Trim());
 
-            if (3 != info.Length)
+            if ((3 > info.Length) || (5 < info.Length))
             {
                 log += "Invalid device structure\n";
                 PrintLog(log);
@@ -252,13 +373,10 @@ namespace TransactionServer
             cam.SetCameraIp(ip);
 
             int type_id;
-            if (!int.TryParse(info[1], out type_id))
+            ACAP_TYPE type;
+            if (int.TryParse(info[1], out type_id))
             {
-                log += String.Format("Invalid acap type data - {0}, acap_type = {1}\n", info[1], cam.type);
-            }
-            else
-            {
-                ACAP_TYPE type = (ACAP_TYPE)type_id;
+                type = (ACAP_TYPE)type_id;
                 if (!ValidateEnumType(type))
                 {
                     log += String.Format("Invalid acap type data - {0}, acap_type = {1}\n", type, cam.type);
@@ -269,15 +387,21 @@ namespace TransactionServer
                     cam.SetACAPType(type);
                 }
             }
-
-            int state_id;
-            if (!int.TryParse(info[2], out state_id))
+            else if (Enum.TryParse<ACAP_TYPE>(info[1], out type))
             {
-                log += String.Format("Invalid state type data - {0}, device_state = {1}\n", info[2], cam.status);
+                log += String.Format("acap_type = {0}\n", type);
+                cam.SetACAPType(type);
             }
             else
             {
-                DEVICE_STATE state = (DEVICE_STATE)state_id;
+                log += String.Format("Invalid acap type data - {0}, acap_type = {1}\n", info[1], cam.type);
+            }
+
+            int state_id;
+            DEVICE_STATE state;
+            if (int.TryParse(info[2], out state_id))
+            {
+                state = (DEVICE_STATE)state_id;
                 if (!ValidateEnumType(state))
                 {
                     log += String.Format("Invalid state type data - {0}, device_state = {1}\n", state, cam.status);
@@ -287,6 +411,36 @@ namespace TransactionServer
                     log += String.Format("device_state = {0}\n", state);
                     cam.SetCameraStatus(state);
                 }
+            }
+            else if (Enum.TryParse<DEVICE_STATE>(info[2], out state))
+            {
+                log += String.Format("device_state = {0}\n", state);
+                cam.SetCameraStatus(state);
+            }
+            else
+            {
+                log += String.Format("Invalid state type data - {0}, device_state = {1}\n", info[2], cam.status);
+            }
+
+            if (4 <= info.Length)
+            {
+                uint device_id;
+                if (!uint.TryParse(info[3], out device_id))
+                {
+                    log += String.Format("Invalid device id data - {0}, device_id = {1}\n", type, cam.id);
+                }
+                else
+                {
+                    log += String.Format("device_id = {0}\n", device_id);
+                    cam.SetCameraId(device_id);
+                }
+            }
+
+            if (5 <= info.Length)
+            {
+                string device_name = info[4];
+                log += String.Format("device_name = {0}\n", device_name);
+                cam.SetCameraName(device_name);
             }
 
             PrintLog(log);

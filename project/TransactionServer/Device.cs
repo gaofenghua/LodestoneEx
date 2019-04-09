@@ -70,8 +70,9 @@ namespace TransactionServer
 
         public bool Equals(ACAPCamera cam)
         {
-            return (this.ip == cam.ip) && (this.id == cam.id) 
-                && (this.type == cam.type) && (this.status == cam.status);
+            return (this.ip == cam.ip) 
+                && (this.type == cam.type) 
+                && (this.status == cam.status);
         }
     }
 

@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Timers;
 using System.IO;
 using Seer.DeviceModel.Client;
+using TransactionServer.Base;
 
 namespace TransactionServer
 {
@@ -17,12 +18,28 @@ namespace TransactionServer
         private List<ACAPCamera> m_acap_cameras = null;
         private List<ACAPCamera> m_acap_avms_cameras = null;
         private Timer m_import_timer = null;
-        //private Timer process_timer = null;
         public event EventHandler<EventArgs> ACAPCameraListUpdateEvent;
-        public static readonly object utLock = new object();
-        private const int IMPORT_INTERVAL = 20 * 1000;
-        private const string FILE_FORMAT = ".csv";
+        private string m_workDirectory = string.Empty;
+        private bool m_bTraceLogEnabled = true;
+        private bool m_bPrintLogEnabled = false;
 
+        public static readonly object utLock = new object();
+        private const int IMPORT_INTERVAL = 30 * 1000;
+        private const string FILE_FORMAT = ".csv";
+        private const string JOB_LOG_FILE = "TransactionServer.log";
+
+
+        private void PrintLog(string text)
+        {
+            if (m_bTraceLogEnabled)
+            {
+                Trace.WriteLine(text);
+            }
+            if (m_bPrintLogEnabled)
+            {
+                ServiceTools.WriteLog(m_workDirectory + @"\" + JOB_LOG_FILE, text, true);
+            }
+        }
 
         public List<ACAPCamera> GetACAPCameraList()
         {
@@ -39,13 +56,14 @@ namespace TransactionServer
 
         public DeviceFilter()
         {
+            m_bPrintLogEnabled = (ServiceTools.GetAppSetting("print_log_enabled").ToLower() == "true") ? true : false;
             m_avms_cameras = new Dictionary<string, uint>();
             m_acap_cameras = new List<ACAPCamera>();
             m_acap_avms_cameras = new List<ACAPCamera>();
-
             m_import_timer = new Timer(IMPORT_INTERVAL);
             m_import_timer.Enabled = true;
             m_import_timer.Elapsed += ImportACAPCamera;
+            m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
         }
 
         public void UpdateAVMSCameras(Dictionary<uint, CCamera> cameras)
@@ -111,18 +129,18 @@ namespace TransactionServer
         {
             bool isChanged = false;
             Import(System.Windows.Forms.Application.StartupPath.ToString() + @"\ACAPCameras.csv", ref isChanged);
-            Trace.WriteLine(String.Format("ACAP Camera List - isChanged = {0}", isChanged));
-            Print(m_acap_cameras);
-            Trace.WriteLine("ACAP AVMS Camera List : \n");
-            Print(m_acap_avms_cameras);
+            PrintLog(String.Format("ACAP Camera List - isChanged = {0} :\n{1}", isChanged, GetItemsInfo(m_acap_cameras)));
+            PrintLog("ACAP AVMS Camera List : \n" + GetItemsInfo(m_acap_avms_cameras));
         }
 
-        public static void Print(List<ACAPCamera> list)
+        public string GetItemsInfo(List<ACAPCamera> list)
         {
+            string info = string.Empty;
             list.ForEach(delegate (ACAPCamera cam)
             {
-                Trace.WriteLine(String.Format("cam : ip = {0}, acap_type = {1}, device_state = {2}\n", cam.ip, cam.type, cam.status));
+                info += String.Format("cam : ip = {0}, id = {1}, acap_type = {2}, device_state = {3}\n", cam.ip, cam.id, cam.type, cam.status);
             });
+            return info;
         }
 
         private void MakeDevice(Dictionary<string, uint> listAVMS, List<ACAPCamera> listACAP)
@@ -152,14 +170,14 @@ namespace TransactionServer
                 if (!File.Exists(sFilename))
                 {
                     log += "File does not exist: " + sFilename;
-                    Trace.WriteLine(log);
+                    PrintLog(log);
                     return;
                 }
 
                 if (FILE_FORMAT.ToLower() != Path.GetExtension(sFilename).ToLower())
                 {
                     log += "Invalid file format : " + sFilename;
-                    Trace.WriteLine(log);
+                    PrintLog(log);
                     return;
                 }
 
@@ -171,7 +189,7 @@ namespace TransactionServer
                 if (string.Empty == content)
                 {
                     log += "Empty file : " + sFilename;
-                    Trace.WriteLine(log);
+                    PrintLog(log);
                     return;
                 }
 
@@ -196,11 +214,11 @@ namespace TransactionServer
                         UpdateACAPCameras(acap_cam, ref bChanged);
                     }
                 }
-                Trace.WriteLine(log);
+                PrintLog(log);
             }
             catch (Exception ex)
             {
-                Trace.WriteLine(String.Format("Error importing file \"{0}\" : {1}", sFilename, ex.ToString()));
+                PrintLog(String.Format("Error importing file \"{0}\" : {1}", sFilename, ex.ToString()));
             }
         }
 
@@ -212,21 +230,21 @@ namespace TransactionServer
             if (3 != info.Length)
             {
                 log += "Invalid device structure\n";
-                Trace.WriteLine(log);
+                PrintLog(log);
                 return false;
             }
 
             if ((string.Empty == info[0]) || (string.Empty == info[1]) || (string.Empty == info[2]))
             {
                 log += "One empty value at least for device info\n";
-                Trace.WriteLine(log);
+                PrintLog(log);
                 return false;
             }
 
             if (!ValidateIPAddress(info[0]))
             {
                 log += String.Format("Invalid ip address data - {0}\n", info[0]);
-                Trace.WriteLine(log);
+                PrintLog(log);
                 return false;
             }
             string ip = info[0];
@@ -271,7 +289,7 @@ namespace TransactionServer
                 }
             }
 
-            Trace.WriteLine(log);
+            PrintLog(log);
             return true;
         }
 

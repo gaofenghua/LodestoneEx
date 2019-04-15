@@ -52,7 +52,7 @@ namespace TransactionServer.Jobs.AVMS
         private EventMonitor m_eventMonitor;
         private ManualResetEvent m_waitForServerInitialized = new ManualResetEvent(false);
         public delegate void MessageHandler(MessageEventArgs e);
-        private DeviceFilter m_deviceFilter = null;
+        public DeviceFilter m_deviceFilter = null;
 
         private const string OWNER = "AVMS";
         private const string IP_ADDRESS = "127.0.0.1";

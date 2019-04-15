@@ -150,11 +150,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\ThinClient\ThinClient\TC4I_Common.cs">
+      <Link>TC4I_Common.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\ThinClient\ThinClient\TC4I_Socket.cs">
+      <Link>TC4I_Socket.cs</Link>
+    </Compile>
     <Compile Include="AVMSCom.cs" />
     <Compile Include="Base\ServiceConfig.cs" />
     <Compile Include="Base\ServiceJob.cs" />
     <Compile Include="Base\ServiceTools.cs" />
     <Compile Include="CgiFactory.cs" />
+    <Compile Include="Device.cs" />
     <Compile Include="DeviceFilter.cs" />
     <Compile Include="EventMonitor.cs" />
     <Compile Include="JobEventNotification.cs" />
@@ -162,7 +169,8 @@
     <Compile Include="Jobs\AVMS\Job.cs" />
     <Compile Include="Jobs\Bosch_IP7400\Config.cs" />
     <Compile Include="Jobs\Bosch_IP7400\Job.cs" />
-    <Compile Include="Device.cs" />
+    <Compile Include="Jobs\Client_Com\Client_Com.cs" />
+    <Compile Include="Jobs\Client_Com\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Config.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access.cs" />
     <Compile Include="Jobs\Peake_Access\Peake_Access_xmlConfig.cs" />

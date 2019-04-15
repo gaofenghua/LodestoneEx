@@ -140,6 +140,7 @@ namespace TransactionServer.Jobs.AVMS
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
 
             m_deviceFilter = new DeviceFilter();
+            m_deviceFilter.Create();
         }
 
         protected override void Cleanup()
@@ -160,6 +161,7 @@ namespace TransactionServer.Jobs.AVMS
             }
             m_avms = null;
 
+            m_deviceFilter.Destroy();
             m_deviceFilter = null;
         }
 
@@ -282,7 +284,14 @@ namespace TransactionServer.Jobs.AVMS
                     break;
 
                 default:
-                    PrintLog(String.Format("{0} : [{1}]{2}", methodName, time, message.Split('\t')[1]));
+
+                    string msg = message.Split('\t')[1];
+                    PrintLog(String.Format("{0} : [{1}]{2}", methodName, time, msg));
+                    if (0 == msg.IndexOf("Exception"))
+                    {
+                        Stop();
+                        return;
+                    }
                     break;
             }
 

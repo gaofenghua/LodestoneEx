@@ -118,9 +118,9 @@ namespace TransactionServer.Jobs.Bosch.IP7400
         private void HeartBeat(object obj)
         {
             int currentTime = ((int)(Convert.ToDateTime(DateTime.Now) - new DateTime(1970, 1, 1)).TotalSeconds);
-            int diffTime = 0;
+            int diffTime = currentTime - m_lastMessageTime;
             //PrintLog(String.Format("{0} - Timestamp : Current = {1}, Last = {2}, Diff = {3}s",
-            //    m_jobName, currentTime, m_lastMessageTime, diffTime = currentTime - m_lastMessageTime));
+            //    m_jobName, currentTime, m_lastMessageTime, diffTime /*= currentTime - m_lastMessageTime*/));
             if (diffTime > LINK_INTERVAL * 2)
             {
                 PrintLog(string.Format("{0} - heartbeat : no receive message in period, please check with communication", m_jobName));

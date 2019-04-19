@@ -10,6 +10,7 @@ using TC4I;
 using System.Windows;
 using System.Collections.Concurrent;
 using System.Threading;
+using TransactionServer.Base;
 
 namespace TransactionServer.Jobs.Client_Com
 {
@@ -234,14 +235,20 @@ namespace TransactionServer.Jobs.Client_Com
 
         public void Command_GetCameraList(int ClientID)
         {
-            Camera_Info[] CameraList = new Camera_Info[5];
+            AVMS.Job Avms = (AVMS.Job)parent.m_parentJob;
+            DeviceFilter DF = Avms.m_deviceFilter;
+            List<ACAPCamera> DFCameraList = DF.GetACAPCameraList();
+            int DeviceCount = DFCameraList.Count();
 
-            for (int i = 0; i < 5; i++)
+            Camera_Info[] CameraList = new Camera_Info[DeviceCount];
+
+            for (int i = 0; i < DeviceCount; i++)
             {
-                CameraList[i].ID = (uint)i;
-                CameraList[i].Name = string.Format("Camera_Name_{0}", i);
-                CameraList[i].IP = string.Format("192.168.{0}.{0}", i);
-                CameraList[i].Status = 0;
+                CameraList[i].ID = DFCameraList[i].id;
+                CameraList[i].Name = DFCameraList[i].name;
+                CameraList[i].IP = DFCameraList[i].ip;
+                CameraList[i].Status = DFCameraList[i].status;
+                CameraList[i].Type = DFCameraList[i].type;
             }
 
             Command_Return CommandReturn = new Command_Return();

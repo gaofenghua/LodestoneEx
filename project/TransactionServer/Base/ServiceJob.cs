@@ -11,7 +11,7 @@ namespace TransactionServer.Base
         private DateTime m_NextTime;    // next running time
         protected bool m_IsRunning;
 
-        protected ServiceJob m_parentJob = null;
+        public ServiceJob m_parentJob = null;
         protected bool m_IsCallbackAdded = false;
         public delegate void JobEventHandler(object sender, JobEventArgs e);
         public event JobEventHandler JobEventSend;

@@ -316,14 +316,10 @@ namespace TransactionServer.Jobs.Peake_Access
         }
         private void Client_OnClose()
         {
-            Console.WriteLine($"pack断开");
-
             Peake_Access.PrintLog(0, String.Format("Peake_Access OnClosed. id={0}, ip={1}",id,ip_add));
         }
         private void Client_OnDisconnect()
         {
-            Console.WriteLine($"pack中断");
-
             Peake_Access.PrintLog(0, String.Format("Peake_Access OnDisconnect. id={0}, ip={1}", id, ip_add));
         }
 
@@ -408,7 +404,6 @@ namespace TransactionServer.Jobs.Peake_Access
         public void Send(byte[] data, int offset, int length)
         {
             client.Send(data, offset, length);
-
         }
 
         private void Client_OnSend(int obj)

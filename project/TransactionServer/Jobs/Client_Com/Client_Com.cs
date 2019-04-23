@@ -156,9 +156,6 @@ namespace TransactionServer.Jobs.Client_Com
 
         private void Server_OnAccept(int obj)
         {
-            //server.SetAttached(obj, 555);
-            Console.WriteLine($"Pack已连接{obj}");
-
             if(ClientList.Count()>= Maximum_Connection_Number)
             {
                 string message = string.Format("Server connection over maximum number {0}/{1}, Connection closed. ",ClientList.Count(),Maximum_Connection_Number);
@@ -182,7 +179,6 @@ namespace TransactionServer.Jobs.Client_Com
 
         private void Server_OnSend(int arg1, int arg2)
         {
-            //Console.WriteLine($"Pack已发送:{arg1} 长度:{arg2}");
         }
 
         private void Server_OnReceive(int arg1, byte[] arg2)
@@ -192,7 +188,6 @@ namespace TransactionServer.Jobs.Client_Com
 
         private void Server_OnClose(int obj)
         {
-            //int aaa = server.GetAttached<int>(obj);
             Console.WriteLine($"Pack断开{obj}");
         }
 

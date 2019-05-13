@@ -82,7 +82,7 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void executeLogic()
         {
-            Peake_Access.PrintLog(0, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
+            Peake_Access.PrintLog(2, String.Format("++++++++++++ Peake_Access Started +++++++++++++++"));
 
             config = new PA_xmlConfig();
             config.Load_Event_Map();
@@ -95,28 +95,6 @@ namespace TransactionServer.Jobs.Peake_Access
             {
                 Peake_Access.PrintLog(0, String.Format("{0}", config.message));
             }
-
-            //for (int i = 0; i < 5; i++)
-            //{
-            //    if (Global.Avms.IsConnected == false)
-            //    {
-            //        Peake_Access.PrintLog(0, String.Format("AVMS server is not connected. Wait 3 seconds and will try again"));
-            //        System.Threading.Thread.Sleep(3000);
-            //    }
-            //    else
-            //    {
-            //        break;
-            //    }
-            //}
-
-            //if (Global.Avms.IsConnected == false)
-            //{
-            //    Peake_Access.PrintLog(0, String.Format("error: AVMS server is not connected. Exit Peake_Access process."));
-            //    return;
-            //}
-
-            //Peake_Access.PrintLog(0, String.Format("AVMS server connected. Straring Peake_Access process."));
-
 
             int n_controller = config.Controllers.Count;
 
@@ -143,8 +121,6 @@ namespace TransactionServer.Jobs.Peake_Access
                 //// Check rules
                 //sockets[i].Print_Rules();
             }
-
-
 
             //byte[] Peak_Package_CMD_AllowDataUpload = { 0xaa, 0xaa, 0x03, 0x01, 0xbb }; //允许数据主动上传
             //byte[] Peak_Package_CMD_Upload = { 0x7e, 0xd0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x18, 0x87 };
@@ -218,10 +194,6 @@ namespace TransactionServer.Jobs.Peake_Access
             text = "Log=" + index.ToString() + " " + text;
             ServiceTools.WriteLog(System.Windows.Forms.Application.StartupPath.ToString() + @"\" + JOB_LOG_FILE, text, true);
         }
-
-  
-
-
     }
 
     enum Socket_Status { Init, Connecting, Normal, Connect_Failed, Closed };
@@ -402,13 +374,11 @@ namespace TransactionServer.Jobs.Peake_Access
             {
                 heartbeat_timer.Change(Time_Interval, Timeout.Infinite);
             }
-
         }
 
         public void Send(byte[] data, int offset, int length)
         {
             client.Send(data, offset, length);
-
         }
 
         private void Client_OnSend(int obj)
@@ -471,7 +441,6 @@ namespace TransactionServer.Jobs.Peake_Access
             client.Close();
             Thread.Sleep(500);
             client.Reconnect(ip_add, port_num);
-
         }
 
         public void HeartBeat(object obj)
@@ -518,8 +487,8 @@ namespace TransactionServer.Jobs.Peake_Access
 
         public void ParseData_0x1A(int n_Begin, int n_Length, byte[] data)
         {
-            byte door1234 = data[n_Begin];
-            byte door5678 = data[n_Begin + 1]; //只有4门控制器，8门控制器先不做
+            byte door1234 = data[n_Begin + 3];
+            byte door5678 = data[n_Begin + 2]; //只有4门控制器，8门控制器先不做
 
             byte door_mask = 0x03;
             byte button_mask = 0x01;
@@ -592,6 +561,10 @@ namespace TransactionServer.Jobs.Peake_Access
                 if ((OpenDoor_Result & Mask_ValidCard) != Mask_ValidCard)
                 {
                     TriggerAlarm(DoorNumber, Peake_Event.Invalid_Card,eventTime);
+                }
+                else
+                {
+                    TriggerAlarm(DoorNumber, Peake_Event.Open_Success, eventTime);
                 }
 
                 if( (OpenDoor_Result >> 1 & 0x3F) == 0x01 )

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.IO;
 using TransactionServer.Jobs.Peake_Access;
+using System.Net;
 
 namespace TC4I
 {
@@ -145,6 +146,12 @@ namespace TC4I
                     {
                         throw new IndexOutOfRangeException("The door number is out of range");
                     }
+                    //Check for ip address format
+                    IPAddress ipaddress;
+                    if(IPAddress.TryParse(ip,out ipaddress)==false)
+                    {
+                        throw new IndexOutOfRangeException("The IP address is incorrect");
+                    }
                 }
                 catch (Exception e) //NullReferenceException,FormatException
                 {
@@ -167,6 +174,13 @@ namespace TC4I
             {
                 Peake_Access.PrintLog(0, String.Format("error: Maximum controller number exceeded. Maximum = {0}, Current controller = {1}. ", Peake_Access.Maximum_Controller_Number,Controllers.Count()));
                 status = false;
+                return;
+            }
+            else if(Controllers.Count() == 0)
+            {
+                Peake_Access.PrintLog(0, String.Format("error: controller number = {0}. ", Controllers.Count()));
+                status = false;
+                return;
             }
             status = true;
         }
@@ -196,6 +210,11 @@ namespace TC4I
                 for(int i=0;i<paEvents.Count();i++)
                 {
                     int eventIndex = (int)paEvents[i];
+                    // Avoid double setup for one event/door
+                    if (Controllers[found].Rules[doorNumber, eventIndex].Policy_ID != -1 && Controllers[found].Rules[doorNumber, eventIndex].Camera_ID != -1)
+                    {
+                        Peake_Access.PrintLog(0, String.Format("warning: configuration override, Controller={0} door={1} event={2}, Policy already exist ({3} -> {4}). ", Controllers[found].IP, doorNumber, eventName, Controllers[found].Rules[doorNumber, eventIndex].Policy_ID,policyID));
+                    }
                     Controllers[found].Rules[doorNumber, eventIndex].Policy_ID = policyID;
                     Controllers[found].Rules[doorNumber, eventIndex].Camera_ID = cameraID;
                 }

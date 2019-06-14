@@ -5,7 +5,7 @@ using System.Collections.Specialized;
 using System.Reflection;
 using System.Collections;
 
-namespace TransactionServer.Jobs.AVMS
+namespace TransactionServer.Jobs.ACAPServer
 {
     public class Config : Base.ServiceConfig
     {
@@ -49,6 +49,7 @@ namespace TransactionServer.Jobs.AVMS
         {
             get { return this.m_AuthInfo; }
         }
+
 
         public override void Load(string section)
         {

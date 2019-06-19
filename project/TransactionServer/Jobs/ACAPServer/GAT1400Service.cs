@@ -35,6 +35,7 @@ namespace TransactionServer.Jobs.ACAPServer
 
         public GAT1400Service()
         {
+            m_bPrintLogEnabled = (ServiceTools.GetAppSetting("print_log_enabled").ToLower() == "true") ? true : false;
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
         }
 

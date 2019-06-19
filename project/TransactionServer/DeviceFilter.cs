@@ -62,9 +62,9 @@ namespace TransactionServer
             m_avms_cameras = new Dictionary<string, uint>();
             m_acap_cameras = new List<ACAPCamera>();
             m_acap_avms_cameras = new List<ACAPCamera>();
-            m_import_timer = new Timer(IMPORT_INTERVAL);
-            m_import_timer.Enabled = true;
-            m_import_timer.Elapsed += ImportACAPCamera;
+            //m_import_timer = new Timer(IMPORT_INTERVAL);
+            //m_import_timer.Enabled = true;
+            //m_import_timer.Elapsed += ImportACAPCamera;
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
             m_acapFile = m_workDirectory + @"\ACAPCameras.csv";
             m_resultFile = m_workDirectory + @"\CameraList.csv";
@@ -88,9 +88,12 @@ namespace TransactionServer
             m_avms_cameras = null;
             m_acap_cameras = null;
             m_acap_avms_cameras = null;
-            m_import_timer.Enabled = false;
-            m_import_timer.Elapsed -= ImportACAPCamera;
-            m_import_timer = null;
+            if (null != m_import_timer)
+            {
+                m_import_timer.Enabled = false;
+                m_import_timer.Elapsed -= ImportACAPCamera;
+                m_import_timer = null;
+            }
             m_workDirectory = System.Windows.Forms.Application.StartupPath.ToString();
             m_acapFile = string.Empty;
             m_resultFile = string.Empty;

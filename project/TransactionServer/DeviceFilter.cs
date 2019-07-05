@@ -7,8 +7,12 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Timers;
 using System.IO;
+using System.Data.SqlClient;
+using System.Collections;
+using System.Data;
 using Seer.DeviceModel.Client;
 using TransactionServer.Base;
+using TransactionServer.Jobs.ACAPServer;
 
 namespace TransactionServer
 {
@@ -28,6 +32,9 @@ namespace TransactionServer
         public static readonly object utLock = new object();
         private const int IMPORT_INTERVAL = 30 * 1000;
         private const string FILE_FORMAT = ".csv";
+        private const string INSTANCE_NAME = "AXIS";
+        private const string DATABASE_NAME = "AXISDB";
+        private const string DATABASE_PASSWORD = "test";    //
         private const string JOB_LOG_FILE = "TransactionServer.log";
 
 
@@ -72,7 +79,8 @@ namespace TransactionServer
 
         public void Create()
         {
-            bool isImported = ImportCSV(m_resultFile);
+            //bool isImported = ImportCSV(m_resultFile);
+            bool isImported = ImportFromDatabase("ACAPCamera");
             PrintLog(String.Format("Import CSV : {0}\n{1}", isImported, GetItemsInfo(m_acap_avms_cameras)));
             if (isImported)
             {
@@ -82,8 +90,9 @@ namespace TransactionServer
 
         public void Destroy()
         {
-            string info = GetItemsInfo(m_acap_avms_cameras);
-            PrintLog(String.Format("Remove DeviceFilter - ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
+            //string info = GetItemsInfo(m_acap_avms_cameras);
+            //PrintLog(String.Format("Remove DeviceFilter - ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
+            PrintLog(String.Format("Remove DeviceFilter - ExportToCSV : {0}\n{1}", ExportToDatabase("ACAPCamera", m_acap_avms_cameras)));
             m_bPrintLogEnabled = false;
             m_avms_cameras = null;
             m_acap_cameras = null;
@@ -200,8 +209,53 @@ namespace TransactionServer
                 }
                 m_acap_avms_cameras = list;
                 this.OnACAPCameraListUpdated(this, new DeviceArgs(this, m_acap_avms_cameras));
-                string info = GetItemsInfo(m_acap_avms_cameras);
-                PrintLog(String.Format("Make device - OnACAPCameraListUpdated : true, ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
+                //string info = GetItemsInfo(m_acap_avms_cameras);
+                //PrintLog(String.Format("Make device - OnACAPCameraListUpdated : true, ExportToCSV : {0}\n{1}", ExportToCSV(m_resultFile, info), info));
+                PrintLog(String.Format("Make device - OnACAPCameraListUpdated : true, ExportToCSV : {0}\n{1}", ExportToDatabase("ACAPCamera", m_acap_avms_cameras)));
+            }
+        }
+
+        private bool ImportFromDatabase(string table)
+        {
+            SQLServerUtil.SetConnectionString(INSTANCE_NAME, DATABASE_NAME, DATABASE_PASSWORD);
+            try
+            {
+                DataSet ds = SQLServerUtil.Query("SELECT * FROM " + table);
+                if ((1 == ds.Tables.Count) && (0 != ds.Tables[0].Rows.Count))
+                {
+                    List<ACAPCamera> cameraList = new List<ACAPCamera>();
+                    foreach (DataRow row in ds.Tables[0].Rows)
+                    {
+                        ACAPCamera acap_cam = new ACAPCamera();
+                        if ((ds.Tables[0].Columns.Contains("IP")) && (ds.Tables[0].Columns.Contains("TypeId")) && (ds.Tables[0].Columns.Contains("IsOnline")))
+                        {
+
+                            acap_cam.SetCameraIp(row["IP"].ToString());
+                            acap_cam.SetACAPType(EnumHelper.GetValue<ACAP_TYPE>(row["TypeId"].ToString()));
+                            acap_cam.SetCameraStatus(Boolean.Parse(row["IsOnline"].ToString()) ? DEVICE_STATE.DEVICE_ONLINE : DEVICE_STATE.DEVICE_OFFLINE);
+
+                            if (ds.Tables[0].Columns.Contains("ID"))
+                            {
+                                acap_cam.SetCameraId(uint.Parse(row["ID"].ToString()));
+                            }
+                            if (ds.Tables[0].Columns.Contains("Name"))
+                            {
+                                acap_cam.SetCameraName(row["Name"].ToString());
+                            }
+
+                            cameraList.Add(acap_cam);
+                        }
+                    }
+                    m_acap_avms_cameras = cameraList;
+                }
+                ds.Clear();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                PrintLog(String.Format("Fail to read data from database : {0}", ex.Message));
+                return false;
             }
         }
 
@@ -259,6 +313,41 @@ namespace TransactionServer
                 PrintLog(String.Format("Error importing file \"{0}\" : {1}", sFilename, ex.ToString()));
                 return false;
             }
+        }
+
+        private void InsertACAPCamera(ACAPCamera camera)
+        {
+            ArrayList SQLStringList = new ArrayList();
+            SQLStringList.Add("SET IDENTITY_INSERT ACAPCamera ON");
+            SQLStringList.Add(String.Format("INSERT INTO ACAPCamera ([ID], [IP], [Name], [TypeId], [IsOnline], [CreateTime], [UpdateTime]) VALUES ({0}, '{1}', '{2}', '{3}', {4}, GETDATE(), GETDATE())", camera.id, camera.ip, camera.name, camera.type.ToString(), camera.status == DEVICE_STATE.DEVICE_ONLINE ? 1 : 0));
+            SQLStringList.Add("SET IDENTITY_INSERT ACAPCamera OFF");
+            SQLServerUtil.ExecuteSqlTran(SQLStringList);
+        }
+
+        private bool ExportToDatabase(string table, List<ACAPCamera> cameraList)
+        {
+            if (!table.Equals("ACAPCamera"))
+            {
+                PrintLog(String.Format("Invalid table : {0}", table));
+                return false;
+            }
+
+            bool isExported = false;
+            try
+            {
+                foreach (ACAPCamera acap_cam in cameraList)
+                {
+                    InsertACAPCamera(acap_cam); //
+                }
+                isExported = true;
+            }
+            catch (Exception ex)
+            {
+                PrintLog(String.Format("Fail to write data to database : {0}", ex.Message));
+                isExported = false;
+            }
+
+            return isExported;
         }
 
         private bool ExportToCSV(string sFilename, string content)
